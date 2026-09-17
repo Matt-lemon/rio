@@ -17,3 +17,4 @@ logs/*.log
 
 # Runtime conversation state
 data/sessions/
+data/memory/
