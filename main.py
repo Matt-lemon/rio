@@ -8,6 +8,8 @@ import httpx
 import yaml
 from dotenv import load_dotenv
 
+from core.memory.session import SessionStore
+
 ROOT = Path(__file__).resolve().parent
 IDENTITY_PATH = ROOT / "config" / "identity.yaml"
 
@@ -17,6 +19,8 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:8080/v1").rstrip("/")
 LLM_MODEL = os.getenv("LLM_MODEL", "local-model")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "not-needed")
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
+SESSION_CONTEXT_MESSAGES = int(os.getenv("SESSION_CONTEXT_MESSAGES", "20"))
+LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none")
 
 
 def load_identity() -> dict:
@@ -50,6 +54,19 @@ def build_system_prompt(identity: dict) -> str:
     for item in p.get("interaction", []):
         lines.append(f"- {item}")
 
+    lines.append("")
+    lines.append("[피해야 할 말투]")
+    for item in p.get("avoid", []):
+        lines.append(f"- {item}")
+
+    lines.append("")
+    lines.append("[말투 예시]")
+    for example in p.get("examples", []):
+        user = example.get("user", "")
+        assistant = example.get("assistant", "")
+        lines.append(f"사용자: {user}")
+        lines.append(f"리오: {assistant}")
+
     lines.extend(
         [
             "",
@@ -71,8 +88,9 @@ def stream_completion(messages: list[dict[str, str]]):
     payload = {
         "model": LLM_MODEL,
         "messages": messages,
-        "temperature": 0.8,
-        "top_p": 0.9,
+        "temperature": 0.6,
+        "top_p": 0.85,
+        "reasoning_effort": LLM_REASONING_EFFORT,
         "stream": True,
     }
 
@@ -108,66 +126,176 @@ def main() -> None:
     system_prompt = build_system_prompt(identity)
     assistant_name = identity.get("identity", {}).get("name", "Assistant")
 
+    session_path = ROOT / "data" / "sessions" / "current.json"
+    store = SessionStore(session_path)
+
+    session_messages = store.load()
+
     history: list[dict[str, str]] = [
-        {"role": "system", "content": system_prompt}
+        {"role": "system", "content": system_prompt},
+        *session_messages[-SESSION_CONTEXT_MESSAGES:],
     ]
 
-    print(f"{assistant_name} Phase 1")
-    print("명령: /clear = 대화 초기화, /exit = 종료\n")
+    print(f"{assistant_name} Phase 2")
+    print("명령: /clear /new /status /exit")
+    print()
+
+    if session_messages:
+        restored = min(
+            len(session_messages),
+            SESSION_CONTEXT_MESSAGES,
+        )
+
+        print(
+            f"이전 세션 복구: {len(session_messages)}개 메시지 "
+            f"(최근 {restored}개 사용)"
+        )
+    else:
+        print("저장된 세션 없음")
+
+    print()
 
     while True:
         try:
             user_text = input("You: ").strip()
+
         except (EOFError, KeyboardInterrupt):
-            print("\n종료")
+            print()
+            print("종료")
             break
 
         if not user_text:
             continue
 
-        if user_text.lower() in {"/exit", "/quit"}:
+        command = user_text.lower()
+
+        if command in {"/exit", "/quit"}:
             break
 
-        if user_text.lower() == "/clear":
-            history = [{"role": "system", "content": system_prompt}]
-            print("대화 기록을 초기화했어.\n")
+        if command == "/clear":
+            session_messages = []
+            store.clear()
+
+            history = [
+                {"role": "system", "content": system_prompt}
+            ]
+
+            print("현재 대화 문맥을 초기화했어.")
+            print()
             continue
 
-        history.append({"role": "user", "content": user_text})
+        if command == "/new":
+            archived = store.new_session()
+
+            session_messages = []
+
+            history = [
+                {"role": "system", "content": system_prompt}
+            ]
+
+            if archived:
+                print(f"이전 세션 보관: {archived}")
+
+            print("새 세션을 시작했어.")
+            print()
+            continue
+
+        if command == "/status":
+            reasoning = globals().get(
+                "LLM_REASONING_EFFORT",
+                "server-default",
+            )
+
+            print()
+            print("=== Rio Status ===")
+            print(f"LLM       : {LLM_MODEL}")
+            print(f"Server    : {LLM_BASE_URL}")
+            print(f"Session   : {session_path}")
+            print(f"Saved     : {len(session_messages)} messages")
+            print(
+                f"Context   : "
+                f"{min(len(session_messages), SESSION_CONTEXT_MESSAGES)}"
+                f"/{SESSION_CONTEXT_MESSAGES}"
+            )
+            print(f"Reasoning : {reasoning}")
+            print("==================")
+            print()
+            continue
+
+        user_message = {
+            "role": "user",
+            "content": user_text,
+        }
+
+        history.append(user_message)
 
         print(f"{assistant_name}: ", end="", flush=True)
+
         chunks: list[str] = []
 
         try:
             for chunk in stream_completion(history):
                 chunks.append(chunk)
                 print(chunk, end="", flush=True)
-            print("\n")
+
+            print()
+            print()
+
         except httpx.ConnectError:
+            print()
             print(
-                "\n[연결 실패] 로컬 LLM 서버에 접속할 수 없어. "
-                f"현재 주소: {LLM_BASE_URL}\n"
+                "[연결 실패] 로컬 LLM 서버에 접속할 수 없어. "
+                f"현재 주소: {LLM_BASE_URL}"
             )
+            print()
+
             history.pop()
             continue
+
         except httpx.HTTPStatusError as exc:
-            print(f"\n[LLM 서버 오류] {exc.response.status_code}: {exc.response.text}\n")
+            print()
+            print(
+                f"[LLM 서버 오류] "
+                f"{exc.response.status_code}: "
+                f"{exc.response.text}"
+            )
+            print()
+
             history.pop()
             continue
+
         except httpx.HTTPError as exc:
-            print(f"\n[통신 오류] {exc}\n")
+            print()
+            print(f"[통신 오류] {exc}")
+            print()
+
             history.pop()
             continue
 
         answer = "".join(chunks).strip()
-        if answer:
-            history.append({"role": "assistant", "content": answer})
-        else:
-            history.pop()
 
-        # Phase 1에서는 컨텍스트 폭주를 막기 위해 최근 대화만 유지한다.
-        if len(history) > 21:
-            history = [history[0], *history[-20:]]
+        if not answer:
+            history.pop()
+            continue
+
+        assistant_message = {
+            "role": "assistant",
+            "content": answer,
+        }
+
+        history.append(assistant_message)
+
+        session_messages.extend([
+            user_message,
+            assistant_message,
+        ])
+
+        store.save(session_messages)
+
+        history = [
+            {"role": "system", "content": system_prompt},
+            *session_messages[-SESSION_CONTEXT_MESSAGES:],
+        ]
 
 
 if __name__ == "__main__":
