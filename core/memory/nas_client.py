@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from typing import Any
@@ -31,7 +31,9 @@ class NasMemoryClient:
                 f"{self.base_url}/health"
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+        return data if isinstance(data, dict) else {}
 
     def remember(
         self,
@@ -54,7 +56,9 @@ class NasMemoryClient:
                 json=payload,
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+        return data if isinstance(data, dict) else {}
 
     def search(
         self,
@@ -82,14 +86,34 @@ class NasMemoryClient:
             response.raise_for_status()
 
         data = response.json()
+        if not isinstance(data, dict):
+            return []
 
         results = data.get("results", [])
+        if not isinstance(results, list):
+            return []
 
-        return [
-            item
-            for item in results
-            if float(item.get("score", 0.0)) >= min_score
-        ]
+        filtered: list[dict[str, Any]] = []
+
+        for item in results:
+            if not isinstance(item, dict):
+                continue
+
+            raw_score = item.get("score", item.get("_score", 0.0))
+
+            try:
+                score = float(raw_score)
+            except (TypeError, ValueError):
+                continue
+
+            if score < min_score:
+                continue
+
+            normalized = dict(item)
+            normalized["score"] = score
+            filtered.append(normalized)
+
+        return filtered
 
     def memories(
         self,
@@ -102,7 +126,12 @@ class NasMemoryClient:
             )
             response.raise_for_status()
 
-        return response.json().get("results", [])
+        data = response.json()
+        if not isinstance(data, dict):
+            return []
+
+        results = data.get("results", [])
+        return results if isinstance(results, list) else []
 
     def forget(
         self,
@@ -113,7 +142,9 @@ class NasMemoryClient:
                 f"{self.base_url}/memory/{memory_id}"
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+        return data if isinstance(data, dict) else {}
 
     def safe_search(
         self,
@@ -127,8 +158,8 @@ class NasMemoryClient:
                 limit=limit,
             )
         except (
-            httpx.ConnectError,
-            httpx.TimeoutException,
             httpx.HTTPError,
+            ValueError,
+            TypeError,
         ):
             return []

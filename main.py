@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import httpx
 import yaml
@@ -23,33 +24,26 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.8"))
 LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.95"))
 LLM_TOP_K = int(os.getenv("LLM_TOP_K", "64"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
+HISTORY_LIMIT = max(0, int(os.getenv("RIO_HISTORY_LIMIT", "20")))
 
 
-def load_identity() -> dict:
+def load_identity() -> dict[str, Any]:
     if not IDENTITY_PATH.exists():
         return {}
 
     with IDENTITY_PATH.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        data = yaml.safe_load(f)
+
+    return data if isinstance(data, dict) else {}
 
 
-def build_system_prompt(identity: dict) -> str:
+def build_system_prompt(identity: dict[str, Any]) -> str:
     """
-    최소 프롬프트 빌더.
+    Build the clean main-PC prompt from persistent identity configuration.
 
-    여기서는 기존 프로젝트의:
-    - memory
-    - routing
-    - technical/chat mode
-    - hard-coded behavior rules
-    - tone/interaction/avoid 보정
-    을 전혀 넣지 않는다.
-
-    identity.yaml에서 아래 네 항목만 사용한다:
-    - identity.name
-    - identity.role
-    - identity.user_address
-    - personality.persona
+    Memory, routing, transient state and other orchestration concerns remain
+    outside this runtime. The prompt keeps the stable identity/personality
+    fields that are explicitly configured in identity.yaml.
     """
     identity_cfg = identity.get("identity", {})
     personality = identity.get("personality", {})
@@ -57,10 +51,14 @@ def build_system_prompt(identity: dict) -> str:
     name = str(identity_cfg.get("name", "")).strip()
     role = str(identity_cfg.get("role", "")).strip()
     user_address = str(identity_cfg.get("user_address", "")).strip()
+    core = identity_cfg.get("core", [])
     persona = str(personality.get("persona", "")).strip()
     tone = personality.get("tone", [])
-    parts: list[str] = []
     interaction = personality.get("interaction", [])
+    avoid = personality.get("avoid", [])
+
+    parts: list[str] = []
+
     if name:
         parts.append(f"너의 이름은 {name}다.")
 
@@ -70,13 +68,16 @@ def build_system_prompt(identity: dict) -> str:
     if user_address:
         parts.append(f"사용자 호칭: {user_address}")
 
-    
-        
+    if core:
+        parts.append("")
+        parts.append("### 정체성 핵심")
+        for item in core:
+            parts.append(f"- {item}")
+
     if persona:
-        if parts:
-            parts.append("")
+        parts.append("")
         parts.append(persona)
-    
+
     if tone:
         parts.append("")
         parts.append("### 말투와 표현")
@@ -89,6 +90,12 @@ def build_system_prompt(identity: dict) -> str:
         for item in interaction:
             parts.append(f"- {item}")
 
+    if avoid:
+        parts.append("")
+        parts.append("### 피할 표현")
+        for item in avoid:
+            parts.append(f"- {item}")
+
     return "\n".join(parts).strip()
 
 
@@ -99,7 +106,7 @@ def api_headers() -> dict[str, str]:
     }
 
 
-def get_loaded_models() -> list[dict]:
+def get_loaded_models() -> list[dict[str, Any]]:
     try:
         with httpx.Client(timeout=LLM_TIMEOUT) as client:
             response = client.get(
@@ -166,6 +173,39 @@ def stream_completion(messages: list[dict[str, str]]):
                     yield text
 
 
+def build_messages(
+    system_prompt: str,
+    history: list[dict[str, str]],
+    user_text: str,
+) -> list[dict[str, str]]:
+    messages: list[dict[str, str]] = []
+
+    if system_prompt:
+        messages.append({
+            "role": "system",
+            "content": system_prompt,
+        })
+
+    if HISTORY_LIMIT > 0:
+        messages.extend(history[-HISTORY_LIMIT:])
+
+    messages.append({
+        "role": "user",
+        "content": user_text,
+    })
+
+    return messages
+
+
+def trim_history(history: list[dict[str, str]]) -> None:
+    if HISTORY_LIMIT <= 0:
+        history.clear()
+        return
+
+    if len(history) > HISTORY_LIMIT:
+        del history[:-HISTORY_LIMIT]
+
+
 def print_status(system_prompt: str) -> None:
     models = get_loaded_models()
 
@@ -188,6 +228,7 @@ def print_status(system_prompt: str) -> None:
         f"top_k={LLM_TOP_K}, "
         f"max_tokens={LLM_MAX_TOKENS}"
     )
+    print(f"History limit: {HISTORY_LIMIT} messages")
     print(f"Identity     : {IDENTITY_PATH}")
     print(f"System chars : {len(system_prompt)}")
     print("=========================")
@@ -199,12 +240,6 @@ def main() -> None:
     system_prompt = build_system_prompt(identity)
 
     history: list[dict[str, str]] = []
-
-    if system_prompt:
-        history.append({
-            "role": "system",
-            "content": system_prompt,
-        })
 
     print_status(system_prompt)
     print("명령: /status /clear /system /exit")
@@ -238,29 +273,23 @@ def main() -> None:
             continue
 
         if command == "/clear":
-            history = []
-
-            if system_prompt:
-                history.append({
-                    "role": "system",
-                    "content": system_prompt,
-                })
-
+            history.clear()
             print("현재 프로세스의 대화 문맥을 초기화했어.")
             print()
             continue
 
-        history.append({
-            "role": "user",
-            "content": user_text,
-        })
+        messages = build_messages(
+            system_prompt,
+            history,
+            user_text,
+        )
 
         print("Rio: ", end="", flush=True)
 
         chunks: list[str] = []
 
         try:
-            for chunk in stream_completion(history):
+            for chunk in stream_completion(messages):
                 chunks.append(chunk)
                 print(chunk, end="", flush=True)
 
@@ -271,7 +300,6 @@ def main() -> None:
             print()
             print(f"[연결 실패] {LLM_BASE_URL}")
             print()
-            history.pop()
             continue
 
         except httpx.HTTPStatusError as exc:
@@ -282,26 +310,24 @@ def main() -> None:
                 f"{exc.response.text}"
             )
             print()
-            history.pop()
             continue
 
         except httpx.HTTPError as exc:
             print()
             print(f"[통신 오류] {exc}")
             print()
-            history.pop()
             continue
 
         answer = "".join(chunks).strip()
 
         if not answer:
-            history.pop()
             continue
 
-        history.append({
-            "role": "assistant",
-            "content": answer,
-        })
+        history.extend([
+            {"role": "user", "content": user_text},
+            {"role": "assistant", "content": answer},
+        ])
+        trim_history(history)
 
 
 if __name__ == "__main__":
