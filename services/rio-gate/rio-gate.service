@@ -1,0 +1,16 @@
+[Unit]
+Description=Rio Evidence Gate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/example/rio-gate
+ExecStart=/home/example/rio-gate/.venv/bin/uvicorn gate:app --host 0.0.0.0 --port 8766
+Restart=always
+RestartSec=2
+
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

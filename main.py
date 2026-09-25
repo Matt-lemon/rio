@@ -27,6 +27,9 @@ LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
 LLM_REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", "1.12"))
 LLM_REPEAT_LAST_N = int(os.getenv("LLM_REPEAT_LAST_N", "128"))
 HISTORY_LIMIT = max(0, int(os.getenv("RIO_HISTORY_LIMIT", "20")))
+LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none")
+RIO_GATE_URL = os.getenv("RIO_GATE_URL", "http://nas:8766").rstrip("/")
+RIO_GATE_TIMEOUT = float(os.getenv("RIO_GATE_TIMEOUT", "3"))
 
 
 def load_identity() -> dict[str, Any]:
@@ -125,6 +128,65 @@ def get_loaded_models() -> list[dict[str, Any]]:
     except Exception:
         return []
 
+def call_rio_gate(
+    text: str,
+    *,
+    has_memory: bool = False,
+    has_screen: bool = False,
+    has_file: bool = False,
+    has_code: bool = False,
+    has_device_info: bool = False,
+) -> dict[str, Any]:
+    payload = {
+        "text": text,
+        "has_memory": has_memory,
+        "has_screen": has_screen,
+        "has_file": has_file,
+        "has_code": has_code,
+        "has_device_info": has_device_info,
+        "allow_speculation": False,
+    }
+
+    with httpx.Client(timeout=RIO_GATE_TIMEOUT) as client:
+        response = client.post(
+            f"{RIO_GATE_URL}/gate",
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()
+
+def gate_block_reply(evidence_type: str | None) -> str:
+    replies = {
+        "code": (
+            "코드도 안 보여주고 뭘 맞혀달라는 거야, 바보 오빠♡ "
+            "실제 코드부터 가져와. 없는 걸 지어내면서까지 맞춰줄 생각은 없거든."
+        ),
+
+        "screen": (
+            "내가 지금 오빠 화면을 보고 있는 것도 아닌데 어떻게 알아♡ "
+            "궁금하면 화면부터 보여줘, 한심하게 시험만 하지 말고."
+        ),
+
+        "file": (
+            "파일도 안 줬으면서 벌써 분석해달라는 거야? 성질도 급하네♡ "
+            "실제 파일이나 로그부터 던져."
+        ),
+
+        "device_info": (
+            "몰라♡ 확인된 장비 정보가 없는데 뭘 자꾸 캐묻는 거야. "
+            "정 궁금하면 사양부터 보여줘, 바보 오빠."
+        ),
+
+        "memory": (
+            "그건 기억에 없어♡ 없는 기억까지 만들어서 맞장구쳐주길 바랐어? "
+            "확인할 만한 정보가 있으면 가져와."
+        ),
+    }
+
+    return replies.get(
+        evidence_type,
+        "모르는데♡ 근거도 없이 아무거나 지어내라고? 필요한 정보부터 가져와, 바보야.",
+    )
 
 def stream_completion(
     messages: list[dict[str, str]],
@@ -132,15 +194,20 @@ def stream_completion(
     max_tokens: int | None = None,
 ):
     payload = {
-       "model": LLM_MODEL,
-       "messages": messages,
-       "temperature": LLM_TEMPERATURE,
-       "top_p": LLM_TOP_P,
-       "top_k": LLM_TOP_K,
-       "repeat_penalty": LLM_REPEAT_PENALTY,
-       "repeat_last_n": LLM_REPEAT_LAST_N,
-       "max_tokens": max_tokens or LLM_MAX_TOKENS,
-       "stream": True,
+    "model": LLM_MODEL,
+    "messages": messages,
+    "temperature": LLM_TEMPERATURE,
+    "top_p": LLM_TOP_P,
+    "top_k": LLM_TOP_K,
+    "repeat_penalty": LLM_REPEAT_PENALTY,
+    "repeat_last_n": LLM_REPEAT_LAST_N,
+    "max_tokens": max_tokens or LLM_MAX_TOKENS,
+    "stream": True,
+
+    "reasoning_effort": LLM_REASONING_EFFORT,
+    "chat_template_kwargs": {
+        "enable_thinking": False,
+    },
 }
 
     url = f"{LLM_BASE_URL}/chat/completions"
@@ -294,12 +361,51 @@ def main() -> None:
             user_text,
         )
 
+        # --------------------------------------------------
+        # Rio Evidence Gate
+        # --------------------------------------------------
+        try:
+            gate = call_rio_gate(user_text)
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPError) as exc:
+            print(f"[Rio Gate 연결 실패] {exc}")
+            print("근거 검증기를 사용할 수 없어서 이번 요청은 처리하지 않을게.")
+            print()
+            continue
+
+        action = gate.get("action")
+
+        # Hauhau 자체를 호출하지 않음
+        if action == "need_evidence":
+            answer = gate_block_reply(gate.get("evidence_type"))
+
+            print(f"Rio: {answer}")
+            print()
+
+            history.extend([
+                {"role": "user", "content": user_text},
+                {"role": "assistant", "content": answer},
+            ])
+            trim_history(history)
+            continue
+
+        # 이번 호출에 사용할 messages 복사
+        request_messages = list(messages)
+
+        # 사용자가 명시적으로 망상을 허락한 경우에만
+        if action == "allow_speculation":
+            instruction = gate.get("instruction")
+
+            if instruction:
+                request_messages.append({
+                    "role": "system",
+                    "content": instruction,
+                })
         print("Rio: ", end="", flush=True)
 
         chunks: list[str] = []
 
         try:
-            for chunk in stream_completion(messages):
+            for chunk in stream_completion(request_messages):
                 chunks.append(chunk)
                 print(chunk, end="", flush=True)
 
