@@ -24,6 +24,8 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.8"))
 LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.95"))
 LLM_TOP_K = int(os.getenv("LLM_TOP_K", "64"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
+LLM_REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", "1.12"))
+LLM_REPEAT_LAST_N = int(os.getenv("LLM_REPEAT_LAST_N", "128"))
 HISTORY_LIMIT = max(0, int(os.getenv("RIO_HISTORY_LIMIT", "20")))
 
 
@@ -124,18 +126,26 @@ def get_loaded_models() -> list[dict[str, Any]]:
         return []
 
 
-def stream_completion(messages: list[dict[str, str]]):
+def stream_completion(
+    messages: list[dict[str, str]],
+    *,
+    max_tokens: int | None = None,
+):
     payload = {
-        "model": LLM_MODEL,
-        "messages": messages,
-        "temperature": LLM_TEMPERATURE,
-        "top_p": LLM_TOP_P,
-        "top_k": LLM_TOP_K,
-        "max_tokens": LLM_MAX_TOKENS,
-        "stream": True,
-    }
+       "model": LLM_MODEL,
+       "messages": messages,
+       "temperature": LLM_TEMPERATURE,
+       "top_p": LLM_TOP_P,
+       "top_k": LLM_TOP_K,
+       "repeat_penalty": LLM_REPEAT_PENALTY,
+       "repeat_last_n": LLM_REPEAT_LAST_N,
+       "max_tokens": max_tokens or LLM_MAX_TOKENS,
+       "stream": True,
+}
 
     url = f"{LLM_BASE_URL}/chat/completions"
+
+
 
     with httpx.Client(timeout=LLM_TIMEOUT) as client:
         with client.stream(
