@@ -2,114 +2,30 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+import re
 from typing import Any
 
 import httpx
-import yaml
-from dotenv import load_dotenv
+from web_search import format_web_evidence, web_search
+from rio_voice import RioVoice
+from rio_core import (
+    ROOT, IDENTITY_PATH, LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT,
+    LLM_TEMPERATURE, LLM_TOP_P, LLM_TOP_K, LLM_MAX_TOKENS,
+    HISTORY_LIMIT, api_headers, load_identity, build_system_prompt,
+    build_messages, trim_history, completion_payload, stream_text,
+)
 
 
-ROOT = Path(__file__).resolve().parent
-IDENTITY_PATH = ROOT / "config" / "identity.yaml"
-
-load_dotenv(ROOT / ".env")
-
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:8080/v1").rstrip("/")
-LLM_MODEL = os.getenv("LLM_MODEL", "local-model")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "not-needed")
-LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
-
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.8"))
-LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.95"))
-LLM_TOP_K = int(os.getenv("LLM_TOP_K", "64"))
-LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "512"))
-LLM_REPEAT_PENALTY = float(os.getenv("LLM_REPEAT_PENALTY", "1.12"))
-LLM_REPEAT_LAST_N = int(os.getenv("LLM_REPEAT_LAST_N", "128"))
-HISTORY_LIMIT = max(0, int(os.getenv("RIO_HISTORY_LIMIT", "20")))
-LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none")
 RIO_GATE_URL = os.getenv("RIO_GATE_URL", "http://nas:8766").rstrip("/")
 RIO_GATE_TIMEOUT = float(os.getenv("RIO_GATE_TIMEOUT", "3"))
-
-
-def load_identity() -> dict[str, Any]:
-    if not IDENTITY_PATH.exists():
-        return {}
-
-    with IDENTITY_PATH.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    return data if isinstance(data, dict) else {}
-
-
-def build_system_prompt(identity: dict[str, Any]) -> str:
-    """
-    Build the clean main-PC prompt from persistent identity configuration.
-
-    Memory, routing, transient state and other orchestration concerns remain
-    outside this runtime. The prompt keeps the stable identity/personality
-    fields that are explicitly configured in identity.yaml.
-    """
-    identity_cfg = identity.get("identity", {})
-    personality = identity.get("personality", {})
-
-    name = str(identity_cfg.get("name", "")).strip()
-    role = str(identity_cfg.get("role", "")).strip()
-    user_address = str(identity_cfg.get("user_address", "")).strip()
-    core = identity_cfg.get("core", [])
-    persona = str(personality.get("persona", "")).strip()
-    tone = personality.get("tone", [])
-    interaction = personality.get("interaction", [])
-    avoid = personality.get("avoid", [])
-
-    parts: list[str] = []
-
-    if name:
-        parts.append(f"너의 이름은 {name}다.")
-
-    if role:
-        parts.append(f"역할: {role}")
-
-    if user_address:
-        parts.append(f"사용자 호칭: {user_address}")
-
-    if core:
-        parts.append("")
-        parts.append("### 정체성 핵심")
-        for item in core:
-            parts.append(f"- {item}")
-
-    if persona:
-        parts.append("")
-        parts.append(persona)
-
-    if tone:
-        parts.append("")
-        parts.append("### 말투와 표현")
-        for item in tone:
-            parts.append(f"- {item}")
-
-    if interaction:
-        parts.append("")
-        parts.append("### 대화와 작업 방식")
-        for item in interaction:
-            parts.append(f"- {item}")
-
-    if avoid:
-        parts.append("")
-        parts.append("### 피할 표현")
-        for item in avoid:
-            parts.append(f"- {item}")
-
-    return "\n".join(parts).strip()
-
-
-def api_headers() -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {LLM_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
+RIO_GATE_ENABLED = os.getenv("RIO_GATE_ENABLED", "true").lower() in (
+    "1", "true", "yes", "on"
+)
+RIO_WEB_SEARCH_ENABLED = os.getenv("RIO_WEB_SEARCH_ENABLED", "true").lower() in (
+    "1", "true", "yes", "on"
+)
+RIO_WEB_SEARCH_TIMEOUT = max(1, int(os.getenv("RIO_WEB_SEARCH_TIMEOUT", "10")))
+RIO_WEB_SEARCH_RESULTS = min(5, max(1, int(os.getenv("RIO_WEB_SEARCH_RESULTS", "4"))))
 
 def get_loaded_models() -> list[dict[str, Any]]:
     try:
@@ -188,32 +104,63 @@ def gate_block_reply(evidence_type: str | None) -> str:
         "모르는데♡ 근거도 없이 아무거나 지어내라고? 필요한 정보부터 가져와, 바보야.",
     )
 
+
+def choose_web_search(messages: list[dict[str, str]], user_text: str) -> str | None:
+    """Let the local model request one bounded search without exposing the web to it."""
+    if not RIO_WEB_SEARCH_ENABLED:
+        return None
+
+    explicit = re.match(r"^/search(?:\s+(.+))?$", user_text, re.IGNORECASE)
+    if explicit:
+        return (explicit.group(1) or "").strip()[:200] or None
+
+    requested_web = bool(re.search(r"검색해|검색해서|웹에서|인터넷에서", user_text))
+
+    planner_messages = [
+        {"role": "system", "content": (
+            "너는 Rio의 web_search 호출 여부만 결정하는 라우터다. "
+            "현재·최신 정보, 뉴스, 가격, 일정, 버전, 공식 출처 확인, 또는 사용자가 검색을 요구할 때만 검색한다. "
+            "잡담, 창작, 코드 설명, 대화에 이미 있는 정보에는 검색하지 않는다. "
+            "사용자의 개인 정보·장비·기억·화면은 웹 검색으로 확인할 수 없다. "
+            "반드시 JSON 객체만 출력: {\"search\":true/false,\"query\":\"짧은 검색어\"}. "
+            "search가 false면 query는 빈 문자열. 최대 한 번만 검색할 수 있다."
+        )},
+        *[message for message in messages if message["role"] != "system"][-5:],
+    ]
+    try:
+        with httpx.Client(timeout=min(LLM_TIMEOUT, 15)) as client:
+            response = client.post(
+                f"{LLM_BASE_URL}/chat/completions",
+                headers=api_headers(),
+                json={
+                    "model": LLM_MODEL,
+                    "messages": planner_messages,
+                    "temperature": 0,
+                    "max_tokens": 96,
+                    "stream": False,
+                    "reasoning_effort": "none",
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
+            )
+            response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+        match = re.search(r"\{[^{}]*\}", content)
+        decision = json.loads(match.group()) if match else {}
+        if decision.get("search") is True:
+            query = str(decision.get("query", "")).strip()[:200]
+            return query or None
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+        pass
+    return user_text[:200] if requested_web else None
+
 def stream_completion(
     messages: list[dict[str, str]],
     *,
     max_tokens: int | None = None,
 ):
-    payload = {
-    "model": LLM_MODEL,
-    "messages": messages,
-    "temperature": LLM_TEMPERATURE,
-    "top_p": LLM_TOP_P,
-    "top_k": LLM_TOP_K,
-    "repeat_penalty": LLM_REPEAT_PENALTY,
-    "repeat_last_n": LLM_REPEAT_LAST_N,
-    "max_tokens": max_tokens or LLM_MAX_TOKENS,
-    "stream": True,
-
-    "reasoning_effort": LLM_REASONING_EFFORT,
-    "chat_template_kwargs": {
-        "enable_thinking": False,
-    },
-}
+    payload = completion_payload(messages, max_tokens=max_tokens)
 
     url = f"{LLM_BASE_URL}/chat/completions"
-
-
-
     with httpx.Client(timeout=LLM_TIMEOUT) as client:
         with client.stream(
             "POST",
@@ -225,62 +172,7 @@ def stream_completion(
                 response.read()
                 response.raise_for_status()
 
-            for line in response.iter_lines():
-                if not line or not line.startswith("data:"):
-                    continue
-
-                data = line[5:].strip()
-
-                if data == "[DONE]":
-                    break
-
-                try:
-                    event = json.loads(data)
-                except json.JSONDecodeError:
-                    continue
-
-                choices = event.get("choices") or []
-                if not choices:
-                    continue
-
-                delta = choices[0].get("delta") or {}
-                text = delta.get("content")
-
-                if text:
-                    yield text
-
-
-def build_messages(
-    system_prompt: str,
-    history: list[dict[str, str]],
-    user_text: str,
-) -> list[dict[str, str]]:
-    messages: list[dict[str, str]] = []
-
-    if system_prompt:
-        messages.append({
-            "role": "system",
-            "content": system_prompt,
-        })
-
-    if HISTORY_LIMIT > 0:
-        messages.extend(history[-HISTORY_LIMIT:])
-
-    messages.append({
-        "role": "user",
-        "content": user_text,
-    })
-
-    return messages
-
-
-def trim_history(history: list[dict[str, str]]) -> None:
-    if HISTORY_LIMIT <= 0:
-        history.clear()
-        return
-
-    if len(history) > HISTORY_LIMIT:
-        del history[:-HISTORY_LIMIT]
+            yield from stream_text(response.iter_lines())
 
 
 def print_status(system_prompt: str) -> None:
@@ -311,8 +203,7 @@ def print_status(system_prompt: str) -> None:
     print("=========================")
     print()
 
-
-def main() -> None:
+def _run_chat(voice: RioVoice) -> None:
     identity = load_identity()
     system_prompt = build_system_prompt(identity)
 
@@ -361,20 +252,20 @@ def main() -> None:
             user_text,
         )
 
-        # --------------------------------------------------
         # Rio Evidence Gate
-        # --------------------------------------------------
-        try:
-            gate = call_rio_gate(user_text)
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPError) as exc:
-            print(f"[Rio Gate 연결 실패] {exc}")
-            print("근거 검증기를 사용할 수 없어서 이번 요청은 처리하지 않을게.")
-            print()
-            continue
+        action = "allow"
 
-        action = gate.get("action")
+        if RIO_GATE_ENABLED:
+            try:
+                gate = call_rio_gate(user_text)
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPError) as exc:
+                print(f"[Rio Gate 연결 실패] {exc}")
+                print("근거 검증기를 사용할 수 없어서 이번 요청은 처리하지 않을게.")
+                print()
+                continue
 
-        # Hauhau 자체를 호출하지 않음
+            action = gate.get("action")
+
         if action == "need_evidence":
             answer = gate_block_reply(gate.get("evidence_type"))
 
@@ -388,7 +279,6 @@ def main() -> None:
             trim_history(history)
             continue
 
-        # 이번 호출에 사용할 messages 복사
         request_messages = list(messages)
 
         # 사용자가 명시적으로 망상을 허락한 경우에만
@@ -400,6 +290,28 @@ def main() -> None:
                     "role": "system",
                     "content": instruction,
                 })
+        search_query = choose_web_search(messages, user_text)
+        search_results = []
+        if search_query:
+            try:
+                search_results = web_search(
+                    search_query,
+                    max_results=RIO_WEB_SEARCH_RESULTS,
+                    timeout=RIO_WEB_SEARCH_TIMEOUT,
+                )
+            except Exception as exc:
+                print(f"[웹 검색 실패] {type(exc).__name__}: {exc}")
+                print("검색 결과를 확인하지 못해서 이번 요청은 답하지 않을게.")
+                print()
+                continue
+            if not search_results:
+                print("검색 결과를 찾지 못해서 이번 요청은 답하지 않을게.")
+                print()
+                continue
+            request_messages.append({
+                "role": "system",
+                "content": format_web_evidence(search_query, search_results),
+            })
         print("Rio: ", end="", flush=True)
 
         chunks: list[str] = []
@@ -408,9 +320,16 @@ def main() -> None:
             for chunk in stream_completion(request_messages):
                 chunks.append(chunk)
                 print(chunk, end="", flush=True)
+                voice.feed(chunk)
 
             print()
             print()
+
+            if search_results:
+                print("웹 출처:")
+                for result in search_results:
+                    print(f"- {result.title}: {result.url}")
+                print()
 
         except httpx.ConnectError:
             print()
@@ -433,6 +352,9 @@ def main() -> None:
             print(f"[통신 오류] {exc}")
             print()
             continue
+        finally:
+            voice.flush()
+            voice.wait()
 
         answer = "".join(chunks).strip()
 
@@ -444,6 +366,11 @@ def main() -> None:
             {"role": "assistant", "content": answer},
         ])
         trim_history(history)
+
+
+def main() -> None:
+    with RioVoice() as voice:
+        _run_chat(voice)
 
 
 if __name__ == "__main__":

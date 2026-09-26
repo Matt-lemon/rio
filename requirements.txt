@@ -6,3 +6,6 @@ pydantic-settings
 python-dotenv
 pyyaml
 rich
+ddgs>=9,<10
+requests
+sounddevice
