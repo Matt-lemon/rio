@@ -1,5 +1,6 @@
 .venv/
 .env
+tools/rio-runtime/Start-RioServers.local.psd1
 __pycache__/
 *.pyc
 *.pyo
