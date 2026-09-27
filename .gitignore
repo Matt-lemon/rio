@@ -19,3 +19,6 @@ logs/*.log
 # Runtime conversation state
 data/sessions/
 data/memory/
+
+# Autonomous agency runtime state
+data/agency/
