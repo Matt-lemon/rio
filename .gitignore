@@ -22,3 +22,8 @@ data/memory/
 
 # Autonomous agency runtime state
 data/agency/
+
+# Local working files
+.local-archive/
+*.lnk
+*.before-*

@@ -344,10 +344,24 @@ def clean_tts_text(text: str) -> str:
     """Prepare spoken text only; callers retain the unmodified model response."""
     text = _URL_RE.sub("", text)
     text = re.sub(r"\([^)]*\)|（[^）]*）", "", text)
-    text = _HEART_RE.sub("", text)
+    text = _HEART_RE.sub(", ", text)
+    text = re.sub(r"([.!?。！？])\s*,\s*", r"\1 ", text)
+        # 웹 각주 번호는 TTS에서 통째로 제거
+    text = re.sub(
+        r"\[\s*\d+(?:\s*[,，\-–]\s*\d+)*\s*\]",
+        "",
+        text,
+    )
+    text = re.sub(
+        r"【\s*\d+(?:\s*[,，\-–]\s*\d+)*\s*】",
+        "",
+        text,
+    )
     text = re.sub(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+", "", text)
     text = re.sub(r"[\\`*_~#>\[\]{}|]", "", text)
+    text = re.sub(r"\s+([,.!?。！？])", r"\1", text)
     text = re.sub(r"\s+", " ", text)
+
     return text.strip()
 
 
