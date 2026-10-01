@@ -27,3 +27,8 @@ data/agency/
 .local-archive/
 *.lnk
 *.before-*
+
+# Local dubbing media, caches and isolated environment
+data/dubbing/
+data/dubbing-input/
+services/rio-dubbing/.venv/
