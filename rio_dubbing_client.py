@@ -28,10 +28,10 @@ class DubbingClient:
         return value
 
     def submit(self, source_path: str, *, source_language="zh", target_language="ko",
-               mode="auto", speakers=None, segments=None, background_path=None) -> dict:
+               mode="auto", speaker_mode="diarize", speakers=None, segments=None, background_path=None) -> dict:
         return self._request("POST", "/v1/jobs", {
             "source_path": source_path, "source_language": source_language,
-            "target_language": target_language, "mode": mode,
+            "target_language": target_language, "mode": mode, "speaker_mode": speaker_mode,
             "speakers": speakers or [], "segments": segments or [], "background_path": background_path,
         })
 
@@ -48,7 +48,7 @@ class DubbingClient:
         })
 
     def artifact_url(self, job_id: str, kind="video") -> str:
-        if kind not in {"video", "audio", "manifest"}:
+        if kind not in {"video", "audio", "manifest", "dialogue_stem", "background_stem", "transcript", "subtitles"}:
             raise ValueError("unknown artifact kind")
         return f"{self.base_url}/v1/jobs/{self._id(job_id)}/artifacts/{kind}"
 
@@ -66,8 +66,10 @@ def tool_definitions() -> list[dict]:
     specs = [
         ("dubbing_submit", "Submit a local dubbing job; returns a job ID immediately. Engines may be blocked.",
          {"source_path": {"type": "string"}, "source_language": {"type": "string", "default": "zh"},
-          "target_language": {"type": "string", "default": "ko"}}, ["source_path"]),
-        ("dubbing_status", "Check status. completed means rendered output; preview_ready means demo; blocked needs an engine.",
+          "target_language": {"type": "string", "default": "ko"},
+          "mode": {"type": "string", "enum": ["auto", "analyze"], "default": "auto"},
+          "speaker_mode": {"type": "string", "enum": ["diarize", "single"], "default": "diarize"}}, ["source_path"]),
+        ("dubbing_status", "Check status. completed means rendered output; analysis_ready means transcript only; preview_ready means demo; blocked needs an engine.",
          {"job_id": {"type": "string"}}, ["job_id"]),
         ("dubbing_regenerate", "Change one segment and queue a revision; other clips are cached. Render mode also needs a new WAV.",
          {"job_id": {"type": "string"}, "segment_id": {"type": "string"},

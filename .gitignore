@@ -32,3 +32,5 @@ data/agency/
 data/dubbing/
 data/dubbing-input/
 services/rio-dubbing/.venv/
+services/rio-dubbing/.venv-engines/
+data/dubbing-models/
