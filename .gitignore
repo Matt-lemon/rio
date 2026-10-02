@@ -34,3 +34,5 @@ data/dubbing-input/
 services/rio-dubbing/.venv/
 services/rio-dubbing/.venv-engines/
 data/dubbing-models/
+data/tts-gpu/
+data/runtime-logs/
