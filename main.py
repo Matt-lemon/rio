@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 from web_search import format_web_evidence, web_search
+from rio_dubbing_tools import handle_dubbing_command
 from rio_voice import RioVoice
 from rio_core import (
     ROOT, IDENTITY_PATH, LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT,
@@ -210,7 +211,7 @@ def _run_chat(voice: RioVoice) -> None:
     history: list[dict[str, str]] = []
 
     print_status(system_prompt)
-    print("명령: /status /clear /system /exit")
+    print("명령: /status /clear /system /dubbing help /exit")
     print()
 
     while True:
@@ -243,6 +244,12 @@ def _run_chat(voice: RioVoice) -> None:
         if command == "/clear":
             history.clear()
             print("현재 프로세스의 대화 문맥을 초기화했어.")
+            print()
+            continue
+
+        dubbing_reply = handle_dubbing_command(user_text)
+        if dubbing_reply is not None:
+            print(f"Rio: {dubbing_reply}")
             print()
             continue
 

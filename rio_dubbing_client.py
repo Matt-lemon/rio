@@ -47,15 +47,22 @@ class DubbingClient:
             "translated_text": translated_text, "emotion": emotion, "input_audio_path": input_audio_path,
         })
 
+    def correct_transcript(self, job_id: str, segment_id: str, source_text: str,
+                           *, expected_revision: int) -> dict:
+        return self._request("PATCH", f"/v1/jobs/{self._id(job_id)}/transcript/{self._id(segment_id)}", {
+            "source_text": source_text, "expected_revision": expected_revision,
+        })
+
     def artifact_url(self, job_id: str, kind="video") -> str:
         if kind not in {"video", "audio", "manifest", "dialogue_stem", "background_stem", "transcript", "subtitles"}:
             raise ValueError("unknown artifact kind")
         return f"{self.base_url}/v1/jobs/{self._id(job_id)}/artifacts/{kind}"
 
     def dispatch(self, name: str, arguments: dict) -> dict:
-        """Explicit callable bridge for a future Rio tool dispatcher."""
+        """Explicit callable bridge for Rio tool dispatchers."""
         handlers = {"dubbing_submit": self.submit, "dubbing_status": self.status,
-                    "dubbing_regenerate": self.regenerate, "dubbing_retry": self.retry}
+                    "dubbing_regenerate": self.regenerate, "dubbing_retry": self.retry,
+                    "dubbing_correct_transcript": self.correct_transcript}
         if name not in handlers:
             raise ValueError("unknown dubbing tool")
         return handlers[name](**arguments)
@@ -77,6 +84,10 @@ def tool_definitions() -> list[dict]:
           "input_audio_path": {"type": "string"}}, ["job_id", "segment_id", "translated_text"]),
         ("dubbing_retry", "Explicitly retry a blocked or failed job after resolving the cause.",
          {"job_id": {"type": "string"}}, ["job_id"]),
+        ("dubbing_correct_transcript", "Correct one source-text segment in an analysis_ready analyze job; preserves cached inference. Corrected words need realignment.",
+         {"job_id": {"type": "string"}, "segment_id": {"type": "string"},
+          "source_text": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}},
+         ["job_id", "segment_id", "source_text", "expected_revision"]),
     ]
     return [{"type": "function", "function": {"name": name, "description": description,
              "parameters": {"type": "object", "properties": properties,
