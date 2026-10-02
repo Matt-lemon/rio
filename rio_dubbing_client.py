@@ -41,10 +41,19 @@ class DubbingClient:
     def retry(self, job_id: str) -> dict:
         return self._request("POST", f"/v1/jobs/{self._id(job_id)}/retry")
 
+    def start_dubbing(self, job_id: str, *, expected_revision: int) -> dict:
+        return self._request("POST", f"/v1/jobs/{self._id(job_id)}/dub", {
+            "expected_revision": expected_revision,
+        })
+
     def regenerate(self, job_id: str, segment_id: str, translated_text: str,
-                   *, emotion: str | None = None, input_audio_path: str | None = None) -> dict:
+                   *, emotion: str | None = None, input_audio_path: str | None = None,
+                   expected_revision: int | None = None) -> dict:
+        payload = {"translated_text": translated_text, "emotion": emotion, "input_audio_path": input_audio_path}
+        if expected_revision is not None:
+            payload["expected_revision"] = expected_revision
         return self._request("PATCH", f"/v1/jobs/{self._id(job_id)}/segments/{self._id(segment_id)}", {
-            "translated_text": translated_text, "emotion": emotion, "input_audio_path": input_audio_path,
+            **payload,
         })
 
     def correct_transcript(self, job_id: str, segment_id: str, source_text: str,
@@ -54,7 +63,7 @@ class DubbingClient:
         })
 
     def artifact_url(self, job_id: str, kind="video") -> str:
-        if kind not in {"video", "audio", "manifest", "dialogue_stem", "background_stem", "transcript", "subtitles"}:
+        if kind not in {"video", "audio", "manifest", "dialogue_stem", "background_stem", "transcript", "subtitles", "target_subtitles", "speaker_analysis"}:
             raise ValueError("unknown artifact kind")
         return f"{self.base_url}/v1/jobs/{self._id(job_id)}/artifacts/{kind}"
 
@@ -62,7 +71,8 @@ class DubbingClient:
         """Explicit callable bridge for Rio tool dispatchers."""
         handlers = {"dubbing_submit": self.submit, "dubbing_status": self.status,
                     "dubbing_regenerate": self.regenerate, "dubbing_retry": self.retry,
-                    "dubbing_correct_transcript": self.correct_transcript}
+                    "dubbing_correct_transcript": self.correct_transcript,
+                    "dubbing_start": self.start_dubbing}
         if name not in handlers:
             raise ValueError("unknown dubbing tool")
         return handlers[name](**arguments)
@@ -81,9 +91,13 @@ def tool_definitions() -> list[dict]:
         ("dubbing_regenerate", "Change one segment and queue a revision; other clips are cached. Render mode also needs a new WAV.",
          {"job_id": {"type": "string"}, "segment_id": {"type": "string"},
           "translated_text": {"type": "string"}, "emotion": {"type": "string"},
+          "expected_revision": {"type": "integer", "minimum": 1},
           "input_audio_path": {"type": "string"}}, ["job_id", "segment_id", "translated_text"]),
         ("dubbing_retry", "Explicitly retry a blocked or failed job after resolving the cause.",
          {"job_id": {"type": "string"}}, ["job_id"]),
+        ("dubbing_start", "Continue a reviewed analysis_ready job into Korean dubbing, preserving source corrections and cached analysis.",
+         {"job_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}},
+         ["job_id", "expected_revision"]),
         ("dubbing_correct_transcript", "Correct one source-text segment in an analysis_ready analyze job; preserves cached inference. Corrected words need realignment.",
          {"job_id": {"type": "string"}, "segment_id": {"type": "string"},
           "source_text": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}},

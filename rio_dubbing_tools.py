@@ -12,6 +12,8 @@ from rio_dubbing_client import DubbingClient
 HELP = (
     "더빙 명령:\n"
     "  /dubbing analyze 영상경로 — 중국어 원문 분석·자막·분리 음원 생성\n"
+    "  /dubbing auto 영상경로 — 중국어 영상의 한국어 더빙 생성\n"
+    "  /dubbing dub 작업ID 리비전 — 검토한 분석 결과로 한국어 더빙 시작\n"
     "  /dubbing status 작업ID — 진행 상태 확인\n"
     "  /dubbing transcript 작업ID — 원문 대사·구간 ID·현재 리비전 확인\n"
     "  /dubbing correct 작업ID 구간ID 리비전 수정원문 — 원문 교정\n"
@@ -29,6 +31,7 @@ SOURCE_TEXT_LIMIT = 8000
 _STAGES = {
     "queued": "대기", "ingest": "영상 확인", "separation": "대사·배경음 분리",
     "asr": "음성 인식", "diarization": "화자 분리", "translation": "번역",
+    "speaker-reference": "화자 참조 음성", "translation-retry": "번역 길이 조절",
     "synthesis": "음성 생성", "alignment": "길이 조절", "mixing": "음원 합성",
     "muxing": "영상 출력", "done": "완료",
 }
@@ -40,6 +43,7 @@ _ARTIFACTS = {
     "transcript": "대사 JSON", "subtitles": "원문 자막", "dialogue_stem": "대사 WAV",
     "background_stem": "배경 WAV", "audio": "합성 음원", "video": "합성 영상",
     "manifest": "작업 기록",
+    "target_subtitles": "번역 자막", "speaker_analysis": "화자 분석 기록",
 }
 
 
@@ -138,9 +142,9 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
     argument = command_parts[1].strip() if len(command_parts) == 2 else ""
     if command == "help" and not argument:
         return HELP
-    if command not in {"analyze", "status", "retry", "transcript", "correct"} or not argument:
+    if command not in {"analyze", "auto", "dub", "status", "retry", "transcript", "correct"} or not argument:
         return "명령 형식을 확인해 주세요.\n" + HELP
-    if command == "analyze":
+    if command in {"analyze", "auto"}:
         if argument[0] in {"'", '"'}:
             if len(argument) < 2 or argument[-1] != argument[0]:
                 return "영상경로의 따옴표를 닫아 주세요."
@@ -148,7 +152,13 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
         if not argument:
             return "분석할 영상경로를 입력해 주세요."
         name = "dubbing_submit"
-        arguments = {"source_path": argument, "mode": "analyze", "speaker_mode": "diarize"}
+        arguments = {"source_path": argument, "mode": "analyze" if command == "analyze" else "auto", "speaker_mode": "diarize"}
+    elif command == "dub":
+        continuation = argument.split()
+        if len(continuation) != 2 or not re.fullmatch(r"[1-9][0-9]{0,8}", continuation[1]):
+            return "더빙 형식: /dubbing dub 작업ID 현재리비전\n현재 리비전은 /dubbing transcript 작업ID로 확인해 주세요."
+        name = "dubbing_start"
+        arguments = {"job_id": continuation[0], "expected_revision": int(continuation[1])}
     elif command == "correct":
         correction = argument.split(None, 3)
         if len(correction) != 4 or not re.fullmatch(r"[1-9][0-9]{0,8}", correction[2]):
@@ -176,7 +186,7 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
             403: "더빙 서버 접근이 거부됐어요. 접근 설정을 확인해 주세요.",
             404: "해당 더빙 작업 또는 대사 구간을 찾을 수 없어요. ID를 확인해 주세요.",
             409: ("처리 중이거나 원문 리비전이 바뀌었어요. /dubbing transcript 작업ID로 최신 상태·리비전을 확인해 주세요."
-                  if command == "correct" else "현재 처리 중인 작업은 다시 예약할 수 없어요. 상태를 확인해 주세요."),
+                  if command in {"correct", "dub"} else "현재 처리 중인 작업은 다시 예약할 수 없어요. 상태를 확인해 주세요."),
             422: ("원문을 교정할 수 없어요. 분석 완료 작업인지, 구간·리비전·수정원문이 올바른지 확인해 주세요."
                   if command == "correct" else "요청을 사용할 수 없어요. 영상이 서버의 입력 폴더 안에 있는지, 명령 값이 올바른지 확인해 주세요."),
         }
