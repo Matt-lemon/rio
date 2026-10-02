@@ -36,3 +36,4 @@ services/rio-dubbing/.venv-engines/
 data/dubbing-models/
 data/tts-gpu/
 data/runtime-logs/
+data/omnivoice-broker-build/
