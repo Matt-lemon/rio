@@ -39,3 +39,7 @@ data/tts-gpu/
 data/runtime-logs/
 data/omnivoice-broker-build/
 data/video-encoder/
+
+data/localization/
+data/screen-translate/
+services/rio-screen-translate/.venv/
