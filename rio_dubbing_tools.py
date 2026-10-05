@@ -18,6 +18,7 @@ HELP = (
     "  /dubbing transcript 작업ID — 원문 대사·구간 ID·현재 리비전 확인\n"
     "  /dubbing correct 작업ID 구간ID 리비전 수정원문 — 원문 교정\n"
     "  /dubbing retry 작업ID — 문제 해결 후 재시도\n"
+    "  /dubbing export 작업ID 리비전 코덱 컨테이너 [MB한도] — 영상만 재출력\n"
     "  /dubbing help — 도움말\n"
     "영상경로는 더빙 서버의 입력 폴더 기준이에요. 공백이 있으면 따옴표로 감쌀 수 있어요.\n"
     "analyze는 한국어 더빙 음성·영상을 만들지 않아요.\n"
@@ -34,6 +35,7 @@ _STAGES = {
     "speaker-reference": "화자 참조 음성", "translation-retry": "번역 길이 조절",
     "synthesis": "음성 생성", "alignment": "길이 조절", "mixing": "음원 합성",
     "muxing": "영상 출력", "done": "완료",
+    "video-export": "영상 압축", "video-size-retry": "파일 크기 조절", "waiting-for-rio": "리오 응답 후 재개",
 }
 _PROVIDERS = {
     "separator": "음원 분리", "asr": "음성 인식", "diarizer": "화자 분리",
@@ -142,7 +144,7 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
     argument = command_parts[1].strip() if len(command_parts) == 2 else ""
     if command == "help" and not argument:
         return HELP
-    if command not in {"analyze", "auto", "dub", "status", "retry", "transcript", "correct"} or not argument:
+    if command not in {"analyze", "auto", "dub", "status", "retry", "transcript", "correct", "export"} or not argument:
         return "명령 형식을 확인해 주세요.\n" + HELP
     if command in {"analyze", "auto"}:
         if argument[0] in {"'", '"'}:
@@ -153,6 +155,23 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
             return "분석할 영상경로를 입력해 주세요."
         name = "dubbing_submit"
         arguments = {"source_path": argument, "mode": "analyze" if command == "analyze" else "auto", "speaker_mode": "diarize"}
+    elif command == "export":
+        values = argument.split()
+        if (len(values) not in {4, 5} or not re.fullmatch(r"[1-9][0-9]{0,8}", values[1])
+                or values[2] not in {"auto", "av1", "h264", "hevc", "copy"}
+                or values[3] not in {"mp4", "matroska", "webm"}):
+            return "출력 형식: /dubbing export 작업ID 현재리비전 av1 mp4 50\n코덱: auto/av1/h264/hevc/copy · 컨테이너: mp4/matroska/webm · MB한도는 선택입니다."
+        options = {"codec": values[2], "container": values[3]}
+        if len(values) == 5:
+            try:
+                maximum = float(values[4])
+                if not math.isfinite(maximum) or not 1 <= maximum <= 100000:
+                    raise ValueError
+            except ValueError:
+                return "MB한도는 1~100000 사이의 숫자로 입력해 주세요."
+            options["max_size_mb"] = maximum
+        name = "dubbing_export"
+        arguments = {"job_id": values[0], "expected_revision": int(values[1]), "export": options}
     elif command == "dub":
         continuation = argument.split()
         if len(continuation) != 2 or not re.fullmatch(r"[1-9][0-9]{0,8}", continuation[1]):
@@ -186,7 +205,7 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
             403: "더빙 서버 접근이 거부됐어요. 접근 설정을 확인해 주세요.",
             404: "해당 더빙 작업 또는 대사 구간을 찾을 수 없어요. ID를 확인해 주세요.",
             409: ("처리 중이거나 원문 리비전이 바뀌었어요. /dubbing transcript 작업ID로 최신 상태·리비전을 확인해 주세요."
-                  if command in {"correct", "dub"} else "현재 처리 중인 작업은 다시 예약할 수 없어요. 상태를 확인해 주세요."),
+                  if command in {"correct", "dub", "export"} else "현재 처리 중인 작업은 다시 예약할 수 없어요. 상태를 확인해 주세요."),
             422: ("원문을 교정할 수 없어요. 분석 완료 작업인지, 구간·리비전·수정원문이 올바른지 확인해 주세요."
                   if command == "correct" else "요청을 사용할 수 없어요. 영상이 서버의 입력 폴더 안에 있는지, 명령 값이 올바른지 확인해 주세요."),
         }

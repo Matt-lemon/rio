@@ -38,3 +38,4 @@ data/dubbing-repair-*/
 data/tts-gpu/
 data/runtime-logs/
 data/omnivoice-broker-build/
+data/video-encoder/

@@ -28,11 +28,12 @@ class DubbingClient:
         return value
 
     def submit(self, source_path: str, *, source_language="zh", target_language="ko",
-               mode="auto", speaker_mode="diarize", speakers=None, segments=None, background_path=None) -> dict:
+               mode="auto", speaker_mode="diarize", speakers=None, segments=None, background_path=None, export=None) -> dict:
         return self._request("POST", "/v1/jobs", {
             "source_path": source_path, "source_language": source_language,
             "target_language": target_language, "mode": mode, "speaker_mode": speaker_mode,
             "speakers": speakers or [], "segments": segments or [], "background_path": background_path,
+            **({"export": export} if export is not None else {}),
         })
 
     def status(self, job_id: str) -> dict:
@@ -44,6 +45,11 @@ class DubbingClient:
     def start_dubbing(self, job_id: str, *, expected_revision: int) -> dict:
         return self._request("POST", f"/v1/jobs/{self._id(job_id)}/dub", {
             "expected_revision": expected_revision,
+        })
+
+    def export_video(self, job_id: str, *, expected_revision: int, export: dict) -> dict:
+        return self._request("PATCH", f"/v1/jobs/{self._id(job_id)}/export", {
+            "expected_revision": expected_revision, "export": export,
         })
 
     def regenerate(self, job_id: str, segment_id: str, translated_text: str,
@@ -72,7 +78,7 @@ class DubbingClient:
         handlers = {"dubbing_submit": self.submit, "dubbing_status": self.status,
                     "dubbing_regenerate": self.regenerate, "dubbing_retry": self.retry,
                     "dubbing_correct_transcript": self.correct_transcript,
-                    "dubbing_start": self.start_dubbing}
+                    "dubbing_start": self.start_dubbing, "dubbing_export": self.export_video}
         if name not in handlers:
             raise ValueError("unknown dubbing tool")
         return handlers[name](**arguments)
@@ -80,12 +86,24 @@ class DubbingClient:
 
 def tool_definitions() -> list[dict]:
     """OpenAI-compatible function descriptors; registering these remains opt-in."""
+    export_schema = {"type": "object", "additionalProperties": False, "properties": {
+        "codec": {"type": "string", "enum": ["auto", "av1", "h264", "hevc", "copy"]},
+        "container": {"type": "string", "enum": ["mp4", "matroska", "webm"]},
+        "encoder": {"type": "string", "enum": ["auto", "amf", "software"]},
+        "profile": {"type": "string", "enum": ["auto", "baseline", "main", "high", "main10"]},
+        "level": {"type": "string"},
+        "quality": {"type": "string", "enum": ["speed", "balanced", "quality", "high_quality"]},
+        "rate_control": {"type": "string", "enum": ["vbr_peak", "cqp"]},
+        "bitrate_kbps": {"type": "integer", "minimum": 100, "maximum": 200000},
+        "quality_value": {"type": "integer", "minimum": 0, "maximum": 255},
+        "max_size_mb": {"type": "number", "minimum": 1, "maximum": 100000}}}
     specs = [
         ("dubbing_submit", "Submit a local dubbing job; returns a job ID immediately. Engines may be blocked.",
          {"source_path": {"type": "string"}, "source_language": {"type": "string", "default": "zh"},
           "target_language": {"type": "string", "default": "ko"},
           "mode": {"type": "string", "enum": ["auto", "analyze"], "default": "auto"},
-          "speaker_mode": {"type": "string", "enum": ["diarize", "single"], "default": "diarize"}}, ["source_path"]),
+          "speaker_mode": {"type": "string", "enum": ["diarize", "single"], "default": "diarize"},
+          "export": export_schema}, ["source_path"]),
         ("dubbing_status", "Check status. completed means rendered output; analysis_ready means transcript only; preview_ready means demo; blocked needs an engine.",
          {"job_id": {"type": "string"}}, ["job_id"]),
         ("dubbing_regenerate", "Change one segment and queue a revision; other clips are cached. Render mode also needs a new WAV.",
@@ -98,6 +116,9 @@ def tool_definitions() -> list[dict]:
         ("dubbing_start", "Continue a reviewed analysis_ready job into Korean dubbing, preserving source corrections and cached analysis.",
          {"job_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}},
          ["job_id", "expected_revision"]),
+        ("dubbing_export", "Re-encode only the video using saved dubbed audio. Default is one AV1 MP4; other formats are generated on request. max_size_mb=50 requires a file strictly below 50,000,000 bytes.",
+         {"job_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1},
+          "export": export_schema}, ["job_id", "expected_revision", "export"]),
         ("dubbing_correct_transcript", "Correct one source-text segment in an analysis_ready analyze job; preserves cached inference. Corrected words need realignment.",
          {"job_id": {"type": "string"}, "segment_id": {"type": "string"},
           "source_text": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}},
