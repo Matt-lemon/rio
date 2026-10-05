@@ -96,7 +96,11 @@ def tool_definitions() -> list[dict]:
         "rate_control": {"type": "string", "enum": ["vbr_peak", "cqp"]},
         "bitrate_kbps": {"type": "integer", "minimum": 100, "maximum": 200000},
         "quality_value": {"type": "integer", "minimum": 0, "maximum": 255},
-        "max_size_mb": {"type": "number", "minimum": 1, "maximum": 100000}}}
+        "max_size_mb": {"type": "number", "minimum": 1, "maximum": 100000},
+        "audio_codec": {"type": "string", "enum": ["auto", "aac", "opus"]},
+        "audio_bitrate_kbps": {"type": "integer", "minimum": 16, "maximum": 512},
+        "audio_channels": {"type": "string", "enum": ["auto", "mono", "stereo"]},
+        "audio_sample_rate": {"type": "string", "enum": ["auto", "44100", "48000"]}}}
     specs = [
         ("dubbing_submit", "Submit a local dubbing job; returns a job ID immediately. Engines may be blocked.",
          {"source_path": {"type": "string"}, "source_language": {"type": "string", "default": "zh"},
