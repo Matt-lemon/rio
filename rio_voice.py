@@ -343,6 +343,13 @@ _SENTENCE_RE = re.compile(r"(.+?[.!?。！？]+[\"”’']*)(?=\s)", re.S)
 def clean_tts_text(text: str) -> str:
     """Prepare spoken text only; callers retain the unmodified model response."""
     text = _URL_RE.sub("", text)
+    # 숫자 범위: 24~26도 → 24에서 26도
+    # 음수와 소수점도 대응: -3~-1도 / 1.5~2.0초
+    text = re.sub(
+        r'(?<=\d)\s*[~～〜]\s*(?=[+-]?\d)',
+        '에서 ',
+        text,
+    )
     text = re.sub(r"\([^)]*\)|（[^）]*）", "", text)
     text = _HEART_RE.sub(", ", text)
     text = re.sub(r"([.!?。！？])\s*,\s*", r"\1 ", text)
