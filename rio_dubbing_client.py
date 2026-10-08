@@ -14,12 +14,21 @@ class DubbingClient:
         self.base_url = (base_url or os.getenv("RIO_DUBBING_URL", "http://127.0.0.1:8770")).rstrip("/")
         self.token = token if token is not None else os.getenv("RIO_DUBBING_TOKEN", "")
 
-    def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
+    def _request(self, method: str, path: str, payload: dict | None = None,
+                 *, accept_unhealthy: bool = False) -> dict:
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
         with httpx.Client(timeout=30, trust_env=False) as client:
             response = client.request(method, self.base_url + path, json=payload, headers=headers)
-            response.raise_for_status()
+            if not (accept_unhealthy and response.status_code == 503):
+                response.raise_for_status()
             return response.json()
+
+    def health(self) -> dict:
+        """Keep the worker's diagnostic body on health503; mutations still fail."""
+        value = self._request("GET", "/health", accept_unhealthy=True)
+        if not isinstance(value, dict) or value.get("service") != "rio-dubbing":
+            raise ValueError("unexpected dubbing health response")
+        return value
 
     @staticmethod
     def _id(value: str) -> str:
@@ -41,6 +50,11 @@ class DubbingClient:
 
     def retry(self, job_id: str) -> dict:
         return self._request("POST", f"/v1/jobs/{self._id(job_id)}/retry")
+
+    def vary_speech(self, job_id: str, segment_id: str, *, expected_revision: int) -> dict:
+        return self._request("POST", f"/v1/jobs/{self._id(job_id)}/segments/{self._id(segment_id)}/regenerate", {
+            "expected_revision": expected_revision,
+        })
 
     def start_dubbing(self, job_id: str, *, expected_revision: int) -> dict:
         return self._request("POST", f"/v1/jobs/{self._id(job_id)}/dub", {
@@ -75,7 +89,8 @@ class DubbingClient:
 
     def dispatch(self, name: str, arguments: dict) -> dict:
         """Explicit callable bridge for Rio tool dispatchers."""
-        handlers = {"dubbing_submit": self.submit, "dubbing_status": self.status,
+        handlers = {"dubbing_health": self.health, "dubbing_vary_speech": self.vary_speech,
+                    "dubbing_submit": self.submit, "dubbing_status": self.status,
                     "dubbing_regenerate": self.regenerate, "dubbing_retry": self.retry,
                     "dubbing_correct_transcript": self.correct_transcript,
                     "dubbing_start": self.start_dubbing, "dubbing_export": self.export_video}
@@ -102,6 +117,12 @@ def tool_definitions() -> list[dict]:
         "audio_channels": {"type": "string", "enum": ["auto", "mono", "stereo"]},
         "audio_sample_rate": {"type": "string", "enum": ["auto", "44100", "48000"]}}}
     specs = [
+        ("dubbing_health", "Check API worker health before maintenance. Provider flags mean configured, not model connectivity. Unhealthy workers require operator inspection, not repeated job retries.",
+         {}, []),
+        ("dubbing_vary_speech", "Generate a different voice sample for one segment without changing reviewed text. Requires latest revision; listen before accepting. Ordinary retry keeps the previous seed.",
+         {"job_id": {"type": "string"}, "segment_id": {"type": "string"},
+          "expected_revision": {"type": "integer", "minimum": 1}},
+         ["job_id", "segment_id", "expected_revision"]),
         ("dubbing_submit", "Submit a local dubbing job; returns a job ID immediately. Engines may be blocked.",
          {"source_path": {"type": "string"}, "source_language": {"type": "string", "default": "zh"},
           "target_language": {"type": "string", "default": "ko"},
