@@ -87,6 +87,16 @@ class DubbingClient:
             raise ValueError("unknown artifact kind")
         return f"{self.base_url}/v1/jobs/{self._id(job_id)}/artifacts/{kind}"
 
+    def playback_grant(self, job_id: str, kind: str = "video") -> dict:
+        """Request a short-lived, revision-bound URL for native browser playback.
+
+        The returned URL is relative to the PC API. A NAS web proxy must map
+        it to its own origin; a local output filename is never a public URL.
+        """
+        if kind not in {"video", "audio"}:
+            raise ValueError("unknown playback kind")
+        return self._request("POST", f"/v1/jobs/{self._id(job_id)}/playback/{kind}")
+
     def dispatch(self, name: str, arguments: dict) -> dict:
         """Explicit callable bridge for Rio tool dispatchers."""
         handlers = {"dubbing_health": self.health, "dubbing_vary_speech": self.vary_speech,
