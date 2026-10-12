@@ -16,9 +16,9 @@ class DubbingClient:
         self.token = token if token is not None else dubbing_token()
 
     def _request(self, method: str, path: str, payload: dict | None = None,
-                 *, accept_unhealthy: bool = False) -> dict:
+                 *, accept_unhealthy: bool = False, timeout: float = 30) -> dict:
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
-        with httpx.Client(timeout=30, trust_env=False) as client:
+        with httpx.Client(timeout=timeout, trust_env=False) as client:
             response = client.request(method, self.base_url + path, json=payload, headers=headers)
             if not (accept_unhealthy and response.status_code == 503):
                 response.raise_for_status()
@@ -30,6 +30,13 @@ class DubbingClient:
         if not isinstance(value, dict) or value.get("service") != "rio-dubbing":
             raise ValueError("unexpected dubbing health response")
         return value
+
+    def search_cloud(self, query: str) -> dict:
+        from urllib.parse import quote
+        return self._request('GET', '/v1/inputs/cloud/search?query=' + quote(query, safe=''), timeout=120)
+
+    def import_cloud(self, relative_path: str) -> dict:
+        return self._request('POST', '/v1/inputs/cloud/import', {'relative_path': relative_path}, timeout=600)
 
     @staticmethod
     def _id(value: str) -> str:
@@ -101,6 +108,7 @@ class DubbingClient:
     def dispatch(self, name: str, arguments: dict) -> dict:
         """Explicit callable bridge for Rio tool dispatchers."""
         handlers = {"dubbing_health": self.health, "dubbing_vary_speech": self.vary_speech,
+                    "dubbing_cloud_search": self.search_cloud, "dubbing_cloud_import": self.import_cloud,
                     "dubbing_submit": self.submit, "dubbing_status": self.status,
                     "dubbing_regenerate": self.regenerate, "dubbing_retry": self.retry,
                     "dubbing_correct_transcript": self.correct_transcript,
@@ -128,6 +136,10 @@ def tool_definitions() -> list[dict]:
         "audio_channels": {"type": "string", "enum": ["auto", "mono", "stereo"]},
         "audio_sample_rate": {"type": "string", "enum": ["auto", "44100", "48000"]}}}
     specs = [
+        ("dubbing_cloud_search", "Find cloud media by filename on the PC's approved N: catalog. Exact names win; never silently choose ambiguous candidates.",
+         {"query": {"type": "string", "minLength": 1, "maxLength": 240}}, ["query"]),
+        ("dubbing_cloud_import", "Copy a selected cloud-relative path from N: first, M:/Nextcloud only when missing. Returns stable source_path; does not start dubbing or move/delete originals.",
+         {"relative_path": {"type": "string", "minLength": 1, "maxLength": 1024}}, ["relative_path"]),
         ("dubbing_health", "Check API worker health before maintenance. Provider flags mean configured, not model connectivity. Unhealthy workers require operator inspection, not repeated job retries.",
          {}, []),
         ("dubbing_vary_speech", "Generate a different voice sample for one segment without changing reviewed text. Requires latest revision; listen before accepting. Ordinary retry keeps the previous seed.",

@@ -12,6 +12,8 @@ from rio_dubbing_client import DubbingClient
 HELP = (
     "더빙 명령:\n"
     "  /dubbing health — 서버·워커 상태 확인\n"
+    "  /dubbing find 영상이름 — 클라우드 영상 후보 검색\n"
+    "  /dubbing import 클라우드상대경로 — N: 우선/M: 대체로 PC 입력 폴더 반입\n"
     "  /dubbing analyze 영상경로 — 중국어 원문 분석·자막·분리 음원 생성\n"
     "  /dubbing auto 영상경로 — 중국어 영상의 한국어 더빙 생성\n"
     "  /dubbing dub 작업ID 리비전 — 검토한 분석 결과로 한국어 더빙 시작\n"
@@ -167,11 +169,26 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
     argument = command_parts[1].strip() if len(command_parts) == 2 else ""
     if command == "help" and not argument:
         return HELP
-    if (command not in {"health", "voice", "analyze", "auto", "dub", "status", "retry", "transcript", "correct", "export"}
+    if (command not in {"health", "find", "import", "voice", "analyze", "auto", "dub", "status", "retry", "transcript", "correct", "export"}
             or (command == "health" and argument) or (command != "health" and not argument)):
         return "명령 형식을 확인해 주세요.\n" + HELP
     if command == "health":
         name, arguments = "dubbing_health", {}
+    elif command in {'find', 'import'}:
+        if argument[0] in {'"', "'"}:
+            if len(argument) < 2 or argument[-1] != argument[0]:
+                return '파일 경로의 따옴표를 닫아 주세요.'
+            argument = argument[1:-1].strip()
+        if command == 'find':
+            name, arguments = 'dubbing_cloud_search', {'query': argument}
+        else:
+            # Convert fixed PC aliases on NAS too; never use the NAS filesystem.
+            path = argument.replace('\\', '/')
+            if path[:3].casefold() == 'n:/':
+                path = path[3:]
+            elif path[:13].casefold() == 'm:/nextcloud/':
+                path = path[13:]
+            name, arguments = 'dubbing_cloud_import', {'relative_path': path}
     elif command == "voice":
         values = argument.split()
         if len(values) != 3 or not re.fullmatch(r"[1-9][0-9]{0,8}", values[2]):
@@ -226,6 +243,27 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
         result = (client if client is not None else DubbingClient()).dispatch(name, arguments)
         if command == "health":
             return _format_health(result)
+        if command == 'find':
+            candidates = result.get('candidates')
+            if not isinstance(candidates, list) or len(candidates) > 30:
+                raise ValueError('invalid cloud candidates')
+            if not candidates:
+                return 'N: 클라우드에서 해당 영상 이름을 찾지 못했어요. 상대 경로를 알면 /dubbing import로 확인할 수 있어요.'
+            lines = ['클라우드 파일 후보예요. 원하는 상대 경로를 /dubbing import 뒤에 넣어 주세요.']
+            for item in candidates:
+                path = item.get('relative_path')
+                if not isinstance(path, str) or any(ord(c) < 32 or c == ':' for c in path):
+                    raise ValueError('invalid cloud path')
+                lines.append(path)
+            if result.get('truncated'):
+                lines.append('앞 30개만 표시했어요. 더 구체적인 이름으로 검색해 주세요.')
+            return '\n'.join(lines)
+        if command == 'import':
+            path = result.get('source_path')
+            if not isinstance(path, str) or not re.fullmatch(r'cloud-import/[a-f0-9]{32}\.[a-z0-9]+', path):
+                raise ValueError('invalid staged path')
+            return ('PC 입력 폴더에 반입했어요. 원본은 유지돼요. 분석·더빙은 아직 시작하지 않았어요.\n'
+                    f'입력 경로: {path}\n분석: /dubbing analyze {path}\n더빙: /dubbing auto {path}')
         if command == "voice":
             return "대사를 유지하고 다른 음성을 생성해요. 완료 후 직접 들어 확인해 주세요.\n" + _format_job(result)
         if command == "transcript":
@@ -247,6 +285,13 @@ def handle_dubbing_command(user_text: str, *, client: DubbingClient | None = Non
                   if command == "voice" else "요청을 사용할 수 없어요. 영상이 서버의 입력 폴더 안에 있는지, 명령 값이 올바른지 확인해 주세요."),
             503: "더빙 워커가 작업을 받을 수 없어요. /dubbing health로 확인해 주세요. 중복 재시도는 하지 마세요.",
         }
+        if command in {'find', 'import'}:
+            errors.update({404: '클라우드 파일을 찾지 못했어요. 상대 경로를 확인해 주세요.',
+                           409: '복사 중 원본이 변경됐어요. 동기화 완료 후 다시 반입해 주세요.',
+                           422: '클라우드 상대 경로나 미디어 형식을 확인해 주세요. N: 또는 M:\\Nextcloud 경로를 사용할 수 있어요.',
+                           429: '다른 파일 검색·반입이 진행 중이에요. 완료 후 다시 요청해 주세요.',
+                           503: 'PC의 클라우드 드라이브·동기화 상태를 확인해 주세요. 접근 오류를 파일 없음으로 처리하지 않았어요.',
+                           507: 'PC 입력 디스크 공간 또는 쓰기 권한을 확인해 주세요.'})
         return errors.get(status, f"더빙 서버 요청에 실패했어요. HTTP 상태: {status}.")
     except httpx.TimeoutException:
         return "더빙 서버 응답 시간이 초과됐어요. 중복 제출을 피하려면 서버 로그에서 접수 여부를 먼저 확인해 주세요."
