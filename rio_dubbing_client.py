@@ -6,13 +6,14 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+from rio_dubbing_auth import dubbing_token
 
 
 class DubbingClient:
     def __init__(self, base_url: str | None = None, token: str | None = None):
         load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
         self.base_url = (base_url or os.getenv("RIO_DUBBING_URL", "http://127.0.0.1:8770")).rstrip("/")
-        self.token = token if token is not None else os.getenv("RIO_DUBBING_TOKEN", "")
+        self.token = token if token is not None else dubbing_token()
 
     def _request(self, method: str, path: str, payload: dict | None = None,
                  *, accept_unhealthy: bool = False) -> dict:

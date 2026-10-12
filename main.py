@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
+import argparse
 import os
 import re
+import sys
 from typing import Any
 
 import httpx
 from web_search import format_web_evidence, web_search
 from rio_dubbing_tools import handle_dubbing_command
-from rio_voice import RioVoice
 from rio_core import (
     ROOT, IDENTITY_PATH, LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT,
     LLM_TEMPERATURE, LLM_TOP_P, LLM_TOP_K, LLM_MAX_TOKENS,
@@ -204,11 +205,33 @@ def print_status(system_prompt: str) -> None:
     print("=========================")
     print()
 
-def _run_chat(voice: RioVoice) -> None:
+def read_user_input(prompt: str = "You: ") -> str:
+    return input(prompt)
+
+
+class TextVoice:
+    """Text-only runtime has no sounddevice dependency or TTS connection."""
+
+    def feed(self, text):
+        pass
+
+    def flush(self):
+        pass
+
+    def wait(self):
+        pass
+
+
+def _run_chat(voice) -> None:
     identity = load_identity()
     system_prompt = build_system_prompt(identity)
 
     history: list[dict[str, str]] = []
+    from rio_memory_context import enabled, retrieve_memory, build_memory_block
+    memory = None
+    if enabled():
+        from core.memory.nas_client import NasMemoryClient
+        memory = NasMemoryClient()
 
     print_status(system_prompt)
     print("명령: /status /clear /system /dubbing help /exit")
@@ -216,7 +239,7 @@ def _run_chat(voice: RioVoice) -> None:
 
     while True:
         try:
-            user_text = input("You: ").strip()
+            user_text = read_user_input().strip()
         except (EOFError, KeyboardInterrupt):
             print()
             break
@@ -253,8 +276,28 @@ def _run_chat(voice: RioVoice) -> None:
             print()
             continue
 
+        if command == "/home" or command.startswith("/home "):
+            print("Rio: 홈 제어는 잠겨 있어요. 이번 더빙 연결에서는 활성화하지 않아요.\n")
+            continue
+
+        if command == "/memory":
+            if memory is None:
+                print("Rio: 이 실행기의 메모리 검색은 꺼져 있어요.\n")
+            else:
+                try:
+                    memory.health()
+                    print("Rio: 메모리 API가 응답해요.\n")
+                except (httpx.HTTPError, ValueError, TypeError):
+                    print("Rio: 메모리 API에 연결할 수 없어요.\n")
+            continue
+
+        memories = retrieve_memory(memory, user_text) if memory is not None else []
+        turn_prompt = system_prompt
+        if memory is not None:
+            turn_prompt += "\n\n" + build_memory_block(memories)
+
         messages = build_messages(
-            system_prompt,
+            turn_prompt,
             history,
             user_text,
         )
@@ -264,7 +307,7 @@ def _run_chat(voice: RioVoice) -> None:
 
         if RIO_GATE_ENABLED:
             try:
-                gate = call_rio_gate(user_text)
+                gate = call_rio_gate(user_text, has_memory=bool(memories))
             except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPError) as exc:
                 print(f"[Rio Gate 연결 실패] {exc}")
                 print("근거 검증기를 사용할 수 없어서 이번 요청은 처리하지 않을게.")
@@ -375,7 +418,26 @@ def _run_chat(voice: RioVoice) -> None:
         trim_history(history)
 
 
-def main() -> None:
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description="Rio unified PC/NAS entry point")
+    voice_options = parser.add_mutually_exclusive_group()
+    voice_options.add_argument("--text-only", action="store_true", help="No audio device or TTS requests")
+    voice_options.add_argument("--voice", action="store_true", help="Use local audio output")
+    parser.add_argument("--dubbing", metavar="COMMAND", help="Run one explicit dubbing command, then exit")
+    args = parser.parse_args(argv)
+    if args.dubbing is not None:
+        text = args.dubbing.strip()
+        if not text:
+            parser.error("--dubbing requires a command")
+        reply = handle_dubbing_command(text if text.split(None, 1)[0] == "/dubbing" else "/dubbing " + text)
+        print(reply)
+        return
+    text_only = args.text_only or (not args.voice and (
+        sys.platform != "win32" or os.getenv("RIO_TEXT_ONLY", "0").lower() in {"1", "true", "yes"}))
+    if text_only:
+        _run_chat(TextVoice())
+        return
+    from rio_voice import RioVoice
     with RioVoice() as voice:
         _run_chat(voice)
 
