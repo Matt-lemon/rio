@@ -1,6 +1,8 @@
 ﻿from __future__ import annotations
 
 import os
+import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -24,6 +26,18 @@ class NasMemoryClient:
         self.default_limit = int(
             os.getenv("MEMORY_SEARCH_LIMIT", "5")
         )
+        self.shadow = None
+        if os.getenv('RIO_MEMORY_SHADOW', '0') == '1':
+            try:
+                from .shadow import ShadowRecorder
+                self.shadow = ShadowRecorder(
+                    os.getenv('RIO_MEMORY_SHADOW_URL', 'http://127.0.0.1:8767'),
+                    os.getenv('RIO_MEMORY_SHADOW_LOG', str(Path(__file__).resolve().parents[2]/'data/memory-shadow.jsonl')),
+                    timeout=float(os.getenv('RIO_MEMORY_SHADOW_TIMEOUT', '2')),
+                )
+            except Exception:
+                # Optional shadow setup must never prevent BGE/Rio startup.
+                self.shadow = None
 
     def health(self) -> dict[str, Any]:
         with httpx.Client(timeout=self.timeout) as client:
@@ -63,6 +77,7 @@ class NasMemoryClient:
         limit: int | None = None,
         min_score: float | None = None,
     ) -> list[dict[str, Any]]:
+        started = time.perf_counter()
         if limit is None:
             limit = self.default_limit
 
@@ -84,6 +99,12 @@ class NasMemoryClient:
         data = response.json()
 
         results = data.get("results", [])
+
+        if self.shadow is not None:
+            try:
+                self.shadow.submit(query, results, (time.perf_counter()-started)*1000, limit, min_score)
+            except Exception:
+                pass
 
         return [
             item

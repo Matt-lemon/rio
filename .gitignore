@@ -18,3 +18,29 @@ logs/*.log
 # Runtime conversation state
 data/sessions/
 data/memory/
+
+# Isolated AntSeed identity and payment state
+.antseed-gate-eval/
+
+# Private runtime state, evaluation data and backups stay outside code commits.
+.env.*
+!.env.example
+/data/
+/logs/
+/backups/
+/private-backups/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.token
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.dump
