@@ -57,6 +57,11 @@ class DubbingClient:
     def status(self, job_id: str) -> dict:
         return self._request("GET", f"/v1/jobs/{self._id(job_id)}")
 
+    def save_edits(self, job_id: str, edits: list[dict], *, expected_revision: int) -> dict:
+        return self._request('PATCH', f'/v1/jobs/{self._id(job_id)}/segments', {
+            'expected_revision': expected_revision, 'edits': edits,
+        })
+
     def retry(self, job_id: str) -> dict:
         return self._request("POST", f"/v1/jobs/{self._id(job_id)}/retry")
 
