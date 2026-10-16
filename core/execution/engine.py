@@ -76,7 +76,7 @@ class Task:
             if task['state'] not in {'PAUSED', 'WAITING_INPUT', 'UNKNOWN'}:
                 raise ValueError('TASK_NOT_RESUMABLE')
             for call in self.store.calls(task['id']):
-                if call['state'] in {'PREPARED', 'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'}:
+                if self.runner.unresolved(call):
                     result = self.runner.status(call['id'], session)
                     if not result.completed:
                         state = 'UNKNOWN' if result.status in {'PREPARED', 'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'} else 'FAILED' if result.status == 'FAILED' else 'WAITING_INPUT'
@@ -195,7 +195,7 @@ class Task:
                     self.finish(task, 'PAUSED', '여기까지 진행 내용을 저장했어. 한도에 도달했으니 /resume으로 이어갈 수 있어.')
                     return
                 calls = self.store.calls(ident)
-                unresolved = [c for c in calls if c['state'] in {'PREPARED', 'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'}]
+                unresolved = [c for c in calls if self.runner.unresolved(c)]
                 if unresolved:
                     self.finish(task, 'UNKNOWN', '이전 요청 결과가 미확정이라 다음 단계를 멈췄어. /resume은 결과 조회만 먼저 하고 재전송하지 않아.')
                     return

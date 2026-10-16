@@ -27,6 +27,14 @@ class ToolRunner:
     def __init__(self, store, catalog, adapters):
         self.store, self.catalog, self.adapters = store, catalog, adapters
 
+    @staticmethod
+    def unresolved(call):
+        # Old RETURNED recorded only delivery of an opaque reply, not execution.
+        # Preserve that historical row while refusing to use it as completion.
+        return call['state'] in UNRESOLVED or (call.get('phase') == 'LEGACY_UNCLASSIFIED'
+                    and call.get('effect') == 'control' and call['state'] == 'RETURNED'
+                    and call.get('name', '').startswith('legacy.'))
+
     def phase(self, key, phase, source, claim=None, *, running=False, result=None):
         with self.store.transaction(claim, running=running, revision=running) as db:
             row = db.execute('SELECT * FROM calls WHERE id=?', (key,)).fetchone()
@@ -55,6 +63,8 @@ class ToolRunner:
             if old:
                 if old['task_id'] != task['id'] or old['name'] != name or old['args'] != encoded(arguments):
                     raise ValueError('REQUEST_ID_CONFLICT')
+                if old['state'] == 'RETURNED' and self.unresolved(dict(old)):
+                    return ToolResult('UNKNOWN', '과거 응답은 실행 결과의 증거가 아니야. 원본을 보존하고 재전송하지 않을게.', request_id=request_id)
                 return ToolResult.restore(json.loads(old['result'])) if old['result'] else ToolResult(
                     'UNKNOWN', '이전 요청 결과가 미확정이야. 다시 보내지 않을게.', request_id=request_id)
             now = self.store.clock()
@@ -104,7 +114,7 @@ class ToolRunner:
             raise ValueError('REQUEST_NOT_FOUND')
         if row['result']:
             result = ToolResult.restore(json.loads(row['result']))
-            if result.status not in UNRESOLVED:
+            if not self.unresolved(row):
                 return result
         try:
             result = self.adapters.status(row['name'], json.loads(row['args']), request_id)
@@ -119,11 +129,13 @@ class ToolRunner:
         if result.status not in UNRESOLVED:
             # Result lookup is allowed under the new owner, never a new dispatch.
             with self.store.transaction() as db:
-                current = db.execute('SELECT state,result FROM calls WHERE id=?', (request_id,)).fetchone()
-                if current['result'] and current['state'] not in UNRESOLVED:
+                current = db.execute('SELECT * FROM calls WHERE id=?', (request_id,)).fetchone()
+                if current['result'] and not self.unresolved(dict(current)):
                     return ToolResult.restore(json.loads(current['result']))
                 db.execute('INSERT INTO events(task_id,session_id,kind,payload,created) VALUES(?,?,?,?,?)',
-                           (row['task_id'], session, 'RESULT_RECONCILED', encoded({'request_id': request_id, 'result': result.public()}), self.store.clock()))
+                           (row['task_id'], session, 'RESULT_RECONCILED', encoded({'request_id': request_id,
+                            'previous_state': current['state'], 'previous_result': json.loads(current['result']) if current['result'] else None,
+                            'result': result.public()}), self.store.clock()))
                 for phase in ('ACCEPTED', 'RESULT_CONFIRMED'):
                     db.execute('INSERT INTO call_phases(call_id,phase,state,source,owner_token,fence,created) VALUES(?,?,?,?,?,?,?)',
                                (request_id, phase, result.status, 'EXISTING_ID_LOOKUP', self.store.executor_token or 0, 0, self.store.clock()))

@@ -365,3 +365,35 @@ def test_dubbing_job_receipt_does_not_claim_rendered_result_or_replay(state,monk
     assert [r['phase'] for r in task.runner.history(call['id'],SESSION)['transitions']]==['PREPARED','ATTEMPTED','ACCEPTED']
     assert task.resume(SESSION,item['id'])['state']=='UNKNOWN'
     transport.assert_called_once()
+
+
+def test_opaque_old_reply_is_preserved_but_cannot_resume_as_confirmed_execution(state):
+    task=engine(state);item=task.submit(SESSION,'/dubbing auto old-input')
+    original=json.dumps(ToolResult('RETURNED','old opaque reply',{'structured_outcome':False}).public())
+    from core.execution.types import encoded
+    arguments={'command':'/dubbing auto old-input'}
+    with state.transaction() as db:
+        db.execute('INSERT INTO calls(id,task_id,name,args,revision,effect,state,result,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                   ('legacy_key_123',item['id'],'legacy.dubbing',encoded(arguments),'old','control','RETURNED',original,1,2))
+    claim=state.claim_task(item['id']);descriptor=task.catalog.describe('legacy.dubbing')
+    assert task.runner.call(claim,'legacy.dubbing',arguments,'legacy_key_123',descriptor['revision'],None).status=='UNKNOWN'
+    state.update_task(item['id'],state='PAUSED')
+    assert task.runner.status('legacy_key_123',SESSION).status=='UNKNOWN'
+    assert task.resume(SESSION,item['id'])['state']=='UNKNOWN'
+    row=state.row('SELECT state,result,phase FROM calls WHERE id=?',('legacy_key_123',))
+    assert row=={'state':'RETURNED','result':original,'phase':'LEGACY_UNCLASSIFIED'}
+    assert state.rows('SELECT * FROM call_phases')==[]
+
+
+def test_reconciliation_keeps_original_opaque_observation_in_event_history(state):
+    task=engine(state);item=task.submit(SESSION,'old task')
+    original=ToolResult('RETURNED','old opaque reply',{'structured_outcome':False}).public()
+    with state.transaction() as db:
+        db.execute('INSERT INTO calls(id,task_id,name,args,revision,effect,state,result,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                   ('resolved_key_123',item['id'],'legacy.dubbing','{}','old','control','RETURNED',json.dumps(original),1,2))
+    task.adapters.status=lambda n,a,k:ToolResult('SUCCEEDED','existing ID result',request_id=k,confirmation='SDK_ACK')
+    assert task.runner.status('resolved_key_123',SESSION).status=='SUCCEEDED'
+    event=next(e for e in state.events(SESSION) if e['kind']=='RESULT_RECONCILED')
+    assert event['payload']['previous_result']==original
+    assert event['payload']['previous_state']=='RETURNED'
+    assert [r['source'] for r in task.runner.history('resolved_key_123',SESSION)['transitions']]==['EXISTING_ID_LOOKUP','EXISTING_ID_LOOKUP']
