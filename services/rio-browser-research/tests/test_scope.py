@@ -92,3 +92,53 @@ def test_failed_new_search_does_not_leave_previous_results_openable():
         asyncio.run(browser.handle({'op':'search','query':'new'}))
     with pytest.raises(ResearchError,match='NO_CURRENT_SEARCH_RESULT'):
         asyncio.run(browser.handle({'op':'open_result','index':1}))
+
+
+def test_start_failure_is_reported_without_relaunching_on_every_status():
+    import asyncio
+    from unittest.mock import AsyncMock
+    browser=Browser(None,'managed');browser.start_error='DESKTOP_AUTHORIZATION_MISSING'
+    browser.code=AsyncMock()
+    reply=asyncio.run(browser.status())
+    assert reply=={'ok':False,'status':'DESKTOP_AUTHORIZATION_MISSING','connected':False}
+    browser.code.assert_not_called()
+
+
+def test_rejected_redirect_can_only_leave_via_explicit_new_search():
+    import asyncio
+    from unittest.mock import AsyncMock
+    browser=Browser(None,'managed')
+    browser.search_url='https://www.google.com/search?q=old'
+    browser.results=[{'index':1,'title':'old','url':'https://example.org/old'}]
+    browser.code=AsyncMock(return_value={'url':'http://example.org/redirect','title':'not accepted'})
+    with pytest.raises(ResearchError,match='RESEARCH_HTTP'):
+        asyncio.run(browser.handle({'op':'open_result','index':1}))
+    assert browser.opened_url is None
+    browser.code=AsyncMock(return_value={'url':'https://www.google.com/search?q=new','rows':[{'title':'new','url':'https://example.org/new'}]})
+    reply=asyncio.run(browser.handle({'op':'search','query':'new'}))
+    assert reply['ok'] and browser.failed_navigation_url is None
+    code=browser.code.call_args.args[0]
+    assert 'http://example.org/redirect' in code and 'page.url()!==' in code
+
+
+def test_http_article_redirect_gets_one_identical_https_attempt_only():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None,'managed');b.search_url='https://www.google.com/search?q=news'
+    b.results=[{'index':1,'title':'Article','url':'https://www.google.com/goto?url=public'}]
+    b.code=AsyncMock(side_effect=[{'url':'http://example.org/news?id=1','title':'HTTP'},
+                                 {'url':'https://example.org/news?id=1','title':'Article'}])
+    r=asyncio.run(b.handle({'op':'open_result','index':1}))
+    assert r['url']=='https://example.org/news?id=1' and b.code.call_count==2
+    assert 'ignoreHTTPSErrors' not in b.code.call_args.args[0]
+    assert 'https://example.org/news?id=1' in b.code.call_args.args[0]
+
+
+def test_sensitive_or_local_http_redirect_is_never_upgraded():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None);b.search_url='https://www.google.com/search?q=news'
+    b.results=[{'index':1,'title':'Article','url':'https://example.org/article'}]
+    b.code=AsyncMock(return_value={'url':'http://127.0.0.1/private','title':''})
+    with pytest.raises(ResearchError):asyncio.run(b.handle({'op':'open_result','index':1}))
+    assert b.code.call_count==1

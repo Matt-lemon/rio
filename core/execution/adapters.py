@@ -105,7 +105,7 @@ class Adapters:
             if op in {'search', 'open_topic'}:
                 with self.store.transaction(progress.claim if progress else None, running=False, revision=False) as db:
                     db.execute("INSERT INTO meta VALUES('browser_owner',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (session,))
-            evidence = {k: raw[k] for k in ('status', 'title', 'url', 'results', 'query', 'index') if k in raw}
+            evidence = {k: raw[k] for k in ('status', 'title', 'url', 'results', 'query', 'index','requested_host','site_verified','expected_host','actual_host') if k in raw}
             # A title and URL are navigation evidence, never page-content evidence.
             evidence['content_read'] = False
             return ToolResult('NEED_INPUT' if raw.get('needs_selection') else 'OBSERVED' if raw.get('ok') else 'UNKNOWN',
@@ -146,7 +146,20 @@ class Adapters:
         if name == 'dubbing.health':
             from rio_dubbing_client import DubbingClient
             from rio_dubbing_tools import _format_health
-            raw = DubbingClient().health()
+            try:
+                raw = DubbingClient().health()
+            except Exception:
+                from core.dubbing_link import read_status
+                try:
+                    observed=read_status()
+                    state=observed['state'] if not observed['stale'] else 'UNVERIFIED'
+                    reason=observed.get('reason','UNVERIFIED') if not observed['stale'] else 'STALE_LINK_OBSERVATION'
+                except (OSError,ValueError,KeyError):
+                    state,reason='UNVERIFIED','NO_FRESH_LINK_OBSERVATION'
+                message={'WAITING_FOR_PEER':'PC 연결을 기다리고 있어. 전원이 꺼졌다고 확정한 것은 아니야.',
+                         'WAITING_FOR_API':'SSH 연결은 있으나 더빙 API가 아직 응답하지 않아. 서버를 자동으로 시작하지 않았어.',
+                         'CONFIGURATION_ERROR':'더빙 연결 설정이나 인증 확인이 필요해. 자동으로 인증을 반복하지 않아.'}.get(state,'더빙 API의 준비 상태를 확인하지 못했어.')
+                return ToolResult('UNAVAILABLE',message,{'link_state':state,'link_reason':reason,'api_ready':False},key,'OBSERVED' if state!='UNVERIFIED' else 'NONE',reason)
             return ToolResult('OBSERVED', _format_health(raw),
                               {'ok': raw.get('ok'), 'worker': {k: raw.get('worker', {}).get(k) for k in ('enabled', 'accepting_jobs', 'state')}}, key, 'OBSERVED')
         if name.startswith('registry.'):

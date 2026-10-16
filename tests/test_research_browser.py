@@ -125,3 +125,28 @@ def test_one_sentence_exact_page_does_not_choose_between_multiple_matches(monkey
     reply=browser.handle('동일 이름 페이지 열어줘')
     assert '하나로 확정하지 못했어' in reply
     request.assert_called_once_with('search 동일 이름')
+
+
+def test_named_site_and_topic_use_search_without_an_article_address(monkeypatch):
+    calls=[]
+    def reply(command):
+        calls.append(command)
+        if command.startswith('search '):
+            return {'ok':True,'status':'SEARCH_RESULTS_READY','query':'site:news.hada.io Example 오픈소스 Canva',
+                    'results':[{'index':1,'title':'Example - 오픈소스 Canva','url':'https://www.google.com/goto?url=public'}]}
+        return {'ok':True,'status':'RESULT_PAGE_OPENED','index':1,'title':'Example - 오픈소스 Canva','url':'https://news.hada.io/topic?id=123'}
+    monkeypatch.setattr(browser,'request',reply)
+    chat=browser.BrowserConversation()
+    response=chat.handle('긱뉴스에서 Example라는 오픈소스 Canva 소개 글을 찾아서 열어줘')
+    assert calls==['search site:news.hada.io Example 오픈소스 Canva','open 1']
+    assert '페이지를 열었어' in response and chat.required_host=='news.hada.io'
+
+
+def test_same_topic_on_another_site_is_never_reported_as_the_requested_page(monkeypatch):
+    replies=iter([
+        {'ok':True,'status':'SEARCH_RESULTS_READY','results':[{'index':1,'title':'Example - 오픈소스 Canva','url':'https://www.google.com/goto?url=public'}]},
+        {'ok':True,'status':'RESULT_PAGE_OPENED','index':1,'title':'Example - Open Source Canva','url':'https://news.ycombinator.com/item?id=123'}])
+    monkeypatch.setattr(browser,'request',lambda _:next(replies))
+    result=browser.BrowserConversation().open_topic_result('GeekNews Example 오픈소스 Canva')
+    assert result['status']=='REQUESTED_SITE_MISMATCH' and result['ok'] is False
+    assert '페이지를 열었어' not in browser.format_reply(result)

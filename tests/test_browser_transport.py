@@ -89,3 +89,41 @@ def test_failure_to_verify_new_mode_never_switches_current_selection(monkeypatch
     selected=Mock();monkeypatch.setattr(app,'write_selection',selected)
     with pytest.raises(ValueError,match='기존 선택'):app.start('managed')
     selected.assert_not_called()
+
+
+def test_new_selection_preserves_shared_legacy_directory(tmp_path,monkeypatch):
+    monkeypatch.delenv('RIO_BROWSER_TRANSPORT',raising=False)
+    shared=tmp_path/'shared';shared.mkdir(mode=0o775);shared.chmod(0o775)
+    legacy=shared/'browser-transport.json'
+    legacy.write_text(json.dumps({'schema_version':1,'transport':'extension'}));legacy.chmod(0o600)
+    monkeypatch.setattr(mode,'LEGACY_SELECTION',legacy)
+    monkeypatch.setattr(mode,'SELECTION',tmp_path/'private'/'transport.json')
+    assert mode.selected_mode()=='extension'
+    mode.write_selection('managed')
+    assert mode.selected_mode()=='managed'
+    assert shared.stat().st_mode&0o777==0o775
+    assert json.loads(legacy.read_text())['transport']=='extension'
+    assert not list(mode.SELECTION.parent.glob('.transport-*'))
+
+
+def test_dead_local_browser_lock_is_left_for_chromium_to_recover(tmp_path,monkeypatch):
+    import os,socket
+    monkeypatch.setattr(mode,'profile',lambda _:tmp_path)
+    lock=tmp_path/'SingletonLock'
+    lock.symlink_to(socket.gethostname()+'-999999999')
+    assert not mode.profile_in_use('managed') and lock.is_symlink()
+    lock.unlink();lock.symlink_to(socket.gethostname()+'-'+str(os.getpid()))
+    assert mode.profile_in_use('managed')
+    lock.unlink();lock.symlink_to('another-host-999999999')
+    assert mode.profile_in_use('managed')
+
+
+def test_stale_socket_cleanup_never_removes_live_socket(tmp_path):
+    import socket
+    app=launcher();path=tmp_path/'browser.sock'
+    with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as server:
+        server.bind(str(path));path.chmod(0o600);server.listen()
+        with pytest.raises(ValueError,match='사용 중'):app.remove_stale_endpoint(path)
+        assert path.exists()
+    app.remove_stale_endpoint(path)
+    assert not path.exists()

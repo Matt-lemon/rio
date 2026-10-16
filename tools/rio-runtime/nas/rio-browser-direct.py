@@ -10,14 +10,30 @@ import subprocess
 import sys
 import time
 import tempfile
+import stat
 
 PROJECT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(PROJECT))
 from core.browser_transport import (STATE,BASE,MODES,CDP_PORT,profile,endpoint,
-    profile_label,private_directory,cdp_identity,process_start,write_selection,selected_mode)
+    profile_label,private_directory,cdp_identity,process_start,write_selection,selected_mode,profile_in_use)
 
 RUNTIME=BASE/'venv/bin/python'
 HOME='https://www.google.com/'
+
+
+def remove_stale_endpoint(path):
+    """Called only after the dedicated unit is inactive; never replace a live peer."""
+    try:info=path.lstat()
+    except FileNotFoundError:return
+    if not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600:
+        raise ValueError('이전 소켓의 소유자와 권한을 확인해 주세요.')
+    with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
+        connection.settimeout(1)
+        try:connection.connect(str(path))
+        except ConnectionRefusedError:pass
+        else:raise ValueError('전용 연결이 아직 사용 중이어서 변경하지 않았어요.')
+    if path.lstat()!=info:raise ValueError('전용 소켓이 바뀌어 변경하지 않았어요.')
+    path.unlink()
 
 
 def prepare():
@@ -63,8 +79,8 @@ def start(mode):
     unit='rio-browser-'+mode
     active=subprocess.run(['systemctl','--user','is-active',unit+'.service'],capture_output=True,text=True).stdout.strip()=='active'
     if not active:
-        if endpoint(mode).exists():raise ValueError('이 방식의 이전 소켓이 남아 있어 자동으로 덮어쓰지 않았어요.')
-        if mode=='managed' and os.path.lexists(profile(mode)/'SingletonLock'):
+        remove_stale_endpoint(endpoint(mode))
+        if mode=='managed' and profile_in_use(mode):
             raise ValueError('전용 자동화 프로필이 이미 열려 있어요. 그 창만 닫은 뒤 실행해 주세요.')
         command=['systemd-run','--user','--unit='+unit,'--collect','--property=UMask=0077',
                  '--property=WorkingDirectory='+str(PROJECT),
@@ -75,6 +91,7 @@ def start(mode):
                  'LANG':os.getenv('LANG','C.UTF-8')}
         if os.getenv('WAYLAND_DISPLAY'):session['WAYLAND_DISPLAY']=os.environ['WAYLAND_DISPLAY']
         elif Path(runtime+'/wayland-0').exists():session['WAYLAND_DISPLAY']='wayland-0'
+        if os.getenv('XAUTHORITY'):session['XAUTHORITY']=os.environ['XAUTHORITY']
         command.extend('--setenv='+k+'='+v for k,v in session.items())
         command.extend([str(RUNTIME),'-m','rio_browser_research.service'])
         subprocess.run(command,check=True,capture_output=True,text=True)
@@ -86,6 +103,8 @@ def start(mode):
             if status.get('ok') and status.get('profile')==profile_label(mode):
                 write_selection(mode)
                 return {'selected':mode,'status':status['status'],'profile':status['profile']}
+            if status.get('status') not in {'STARTING_DEDICATED_BROWSER','AWAITING_TAB_APPROVAL','BROWSER_CONNECTION_UNVERIFIED'}:
+                raise ValueError('전용 브라우저 준비 실패: '+str(status.get('status','UNVERIFIED'))+'. 기존 선택은 유지했어요.')
             time.sleep(.5)
     finally:
         if previous is None:os.environ.pop('RIO_BROWSER_TRANSPORT',None)

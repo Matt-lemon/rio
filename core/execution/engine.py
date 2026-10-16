@@ -126,11 +126,12 @@ class Task:
         if 0 <= age < 600:
             browser.results = saved.get('results', [])
             browser.index = saved.get('index')
+            browser.required_host = saved.get('required_host')
             browser.checked = time.monotonic() - age
         return browser
 
     def save_browser(self, session, browser, claim):
-        self.store.browser(session, {'results': browser.results, 'index': browser.index,
+        self.store.browser(session, {'results': browser.results, 'index': browser.index,'required_host':browser.required_host,
                                     'checked_at': self.store.clock() - (time.monotonic() - browser.checked)}, claim=claim)
 
     def router(self, session):

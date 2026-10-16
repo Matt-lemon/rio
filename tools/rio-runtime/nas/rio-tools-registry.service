@@ -1,0 +1,17 @@
+[Unit]
+Description=Rio approved tool Registry and bounded Docker worker
+
+[Service]
+Type=exec
+WorkingDirectory=%h/rio-nas-pc-integration-20261012
+ExecStart=/usr/bin/python3 %h/rio-nas-pc-integration-20261012/tools/rio-runtime/nas/rio-tools-registry.py
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

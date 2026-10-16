@@ -54,6 +54,8 @@ class Application:
             raise ValueError('PUBLIC_OPERATION_FORBIDDEN')
         if op == 'health':
             return {'ready': self.store.executor_valid(), 'version': 1, 'automatic_build': False, 'direct_docker': False,
+                    'process_uid': os.geteuid(),
+                    'docker_socket_access': os.access('/var/run/docker.sock', os.R_OK | os.W_OK),
                     'executor_token': self.task.executor_token,
                     'source_revision': self.source_revision}
         if op == 'catalog.list':

@@ -164,3 +164,16 @@ def test_proactive_does_not_search_private_task_labels(state):
     suggestions.tick()
     search.assert_not_called()
     assert suggestions.interests(session)[0]['source'] == 'task_goal_local_only'
+
+
+@pytest.mark.parametrize('link_state,stale,expected',[
+    ('WAITING_FOR_PEER',False,'WAITING_FOR_PEER'),
+    ('WAITING_FOR_API',False,'WAITING_FOR_API'),
+    ('CONFIGURATION_ERROR',False,'CONFIGURATION_ERROR'),
+    ('WAITING_FOR_API',True,'UNVERIFIED')])
+def test_dubbing_failure_uses_only_fresh_supervisor_evidence(state,monkeypatch,link_state,stale,expected):
+    monkeypatch.setattr('rio_dubbing_client.DubbingClient.health',Mock(side_effect=RuntimeError('not public')))
+    monkeypatch.setattr('core.dubbing_link.read_status',lambda:{'state':link_state,'reason':'API_UNAVAILABLE','stale':stale})
+    result=Adapters(state).call('dubbing.health',{},'read_link_123',None)
+    assert result.status=='UNAVAILABLE' and result.evidence['link_state']==expected
+    assert result.evidence['api_ready'] is False and 'not public' not in result.message

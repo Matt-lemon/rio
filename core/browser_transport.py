@@ -3,11 +3,14 @@ import json
 import os
 from pathlib import Path
 import stat
+import tempfile
+import socket
 
 MODES=('extension','managed','cdp')
 STATE=Path.home()/'.local/state/rio/browser-research'
 BASE=Path.home()/'.local/share/rio-browser'
-SELECTION=Path.home()/'.config/rio/browser-transport.json'
+SELECTION=Path.home()/'.config/rio-browser/transport.json'
+LEGACY_SELECTION=Path.home()/'.config/rio/browser-transport.json'
 CDP_PORT=9337
 CDP_ENDPOINT=f'http://127.0.0.1:{CDP_PORT}'
 
@@ -38,8 +41,9 @@ def read_private_json(path):
 
 def selected_mode():
     if 'RIO_BROWSER_TRANSPORT' in os.environ:return mode_name(os.environ['RIO_BROWSER_TRANSPORT'])
-    if not os.path.lexists(SELECTION):return 'extension'
-    value=read_private_json(SELECTION)
+    path=SELECTION if os.path.lexists(SELECTION) else LEGACY_SELECTION
+    if not os.path.lexists(path):return 'extension'
+    value=read_private_json(path)
     if not isinstance(value,dict) or set(value)!={'schema_version','transport'} or type(value['schema_version']) is not int or value['schema_version']!=1:
         raise ValueError('INVALID_BROWSER_SELECTION')
     return mode_name(value['transport'])
@@ -57,13 +61,27 @@ def profile_label(mode):
     return 'rio-dedicated-edge'+('' if mode_name(mode)=='extension' else '-'+mode)
 
 
+def profile_in_use(mode):
+    lock=profile(mode)/'SingletonLock'
+    if not os.path.lexists(lock):return False
+    if not lock.is_symlink():return True
+    try:
+        host,pid=os.readlink(lock).rsplit('-',1)
+        # Let Chromium itself recover only a dead local process lock. We never
+        # delete profile locks or interfere with a live/foreign profile owner.
+        return host!=socket.gethostname() or not pid.isdigit() or Path('/proc/'+pid).exists()
+    except OSError:return True
+
+
 def write_selection(mode):
     mode_name(mode);private_directory(SELECTION.parent)
-    tmp=SELECTION.with_name('browser-transport.new')
-    fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
-    with os.fdopen(fd,'w') as stream:
-        json.dump({'schema_version':1,'transport':mode},stream);stream.write('\n');stream.flush();os.fsync(stream.fileno())
-    os.replace(tmp,SELECTION)
+    fd,name=tempfile.mkstemp(prefix='.transport-',dir=SELECTION.parent)
+    tmp=Path(name)
+    try:
+        with os.fdopen(fd,'w') as stream:
+            json.dump({'schema_version':1,'transport':mode},stream);stream.write('\n');stream.flush();os.fsync(stream.fileno())
+        os.replace(tmp,SELECTION)
+    finally:tmp.unlink(missing_ok=True)
 
 
 def process_start(pid):

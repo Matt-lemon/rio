@@ -7,9 +7,10 @@ import os
 from pathlib import Path
 import re
 import socket
+import signal
 import struct
 from urllib.parse import quote,urlparse
-from core.browser_transport import mode_name,profile,profile_label,endpoint as transport_endpoint,private_directory,mcp_arguments,cdp_identity
+from core.browser_transport import mode_name,profile,profile_label,endpoint as transport_endpoint,private_directory,mcp_arguments,cdp_identity,profile_in_use
 
 ROOT=Path.home()/'.local/state/rio/browser-research'
 PROFILE=Path.home()/'.local/share/rio-browser/edge-profile'
@@ -44,7 +45,22 @@ def validate(req):
 
 
 def parse_result(result):
-    if result.is_error:raise ResearchError('OFFICIAL_BROWSER_CONNECTION_NOT_READY')
+    if result.is_error:
+        # Only fixed diagnostic categories cross IPC; never return browser stderr.
+        text='\n'.join(getattr(x,'text','') for x in result.content if getattr(x,'type',None)=='text')
+        categories=(('Missing X server','DESKTOP_DISPLAY_UNAVAILABLE'),
+                    ('Authorization required','DESKTOP_AUTHORIZATION_MISSING'),
+                    ('cannot open display','DESKTOP_DISPLAY_UNAVAILABLE'),
+                    ('sandbox','BROWSER_SANDBOX_START_FAILED'),
+                    ('Executable doesn\'t exist','BROWSER_EXECUTABLE_MISSING'),
+                    ('Unknown tool','MCP_TOOL_UNAVAILABLE'),
+                    ('not found','MCP_RESOURCE_NOT_FOUND'),
+                    ('Target page, context or browser has been closed','BROWSER_CLOSED'),
+                    ('Timeout','BROWSER_OPERATION_TIMEOUT'),
+                    ('ERR_','BROWSER_NETWORK_ERROR'))
+        kind=next((code for marker,code in categories if marker.lower() in text.lower()),'OFFICIAL_BROWSER_CONNECTION_NOT_READY')
+        print(json.dumps({'status':kind,'error_lines':len(text.splitlines())}),flush=True)
+        raise ResearchError(kind)
     for item in result.content:
         if getattr(item,'type',None)!='text':continue
         m=re.search(r'^### Result\n(.*?)(?=^### |\Z)',item.text,re.M|re.S)
@@ -95,6 +111,8 @@ class Browser:
         if mode!='extension':self.phase='STARTING_DEDICATED_BROWSER'
         self.results=[];self.search_url=None;self.opened_url=None;self.prime_task=None
         self.opened_index=None;self.query=None
+        self.start_error=None
+        self.failed_navigation_url=None
 
     def read_scope(self):
         # Only the exact page reached by a confirmed open may supplement search pages.
@@ -114,12 +132,15 @@ class Browser:
                 await self.code('await page.goto("https://www.google.com/",{waitUntil:"domcontentloaded",timeout:15000});'+READ,timeout=30)
             await self.code(READ,timeout=3600)
             self.phase='CONNECTED_WAITING_FOR_QUERY'
-        except Exception:
+        except Exception as error:
+            self.start_error=str(error) if isinstance(error,ResearchError) else 'BROWSER_START_UNVERIFIED'
             self.phase='CONNECTION_UNVERIFIED'
 
     async def status(self):
         if self.prime_task and not self.prime_task.done():
             return {'ok':False,'status':self.phase,'connected':False}
+        if self.start_error:
+            return {'ok':False,'status':self.start_error,'connected':False}
         info=await self.code(self.read_scope())
         self.phase='CONNECTED_RESEARCH_PAGE' if info.get('url')==self.opened_url else 'CONNECTED_WAITING_FOR_QUERY'
         return {'ok':True,'connected':True,'status':self.phase,'profile':profile_label(self.mode),'transport':self.mode,**info}
@@ -136,7 +157,12 @@ class Browser:
                 p.chmod(0o600)
                 return {'ok':True,'status':'CONNECTION_PROOF_SAVED','proof':str(p)}
             if req['op']=='search':
-                info=await self.status();query=req['query'].strip()
+                if self.failed_navigation_url:
+                    # A new explicit search may leave our own rejected redirect.
+                    # Match its exact URL before navigation; never read that page.
+                    info={'url':self.failed_navigation_url,'origin':urlparse(self.search_url).scheme+'://'+urlparse(self.search_url).netloc}
+                else:info=await self.status()
+                query=req['query'].strip()
                 base='https://www.bing.com' if urlparse(self.search_url or info['origin']).hostname in ('bing.com','www.bing.com') else 'https://www.google.com'
                 url=base+'/search?q='+quote(query)+'&hl=ko'
                 body='if(page.url()!=='+json.dumps(info['url'])+')return {rio_research:{error:"SEARCH_CHANGED"}};'
@@ -144,6 +170,7 @@ class Browser:
                 body+='await page.goto('+json.dumps(url)+',{waitUntil:"domcontentloaded",timeout:15000});'
                 body+=COLLECT_RESULTS
                 data=await self.code(body)
+                self.failed_navigation_url=None
                 rows=result_rows(data)
                 self.results=rows;self.search_url=data['url'];self.query=query
                 return {'ok':bool(rows),'status':'SEARCH_RESULTS_READY' if rows else 'NO_VERIFIED_RESULTS','query':query,'results':rows}
@@ -163,7 +190,19 @@ class Browser:
             allowed=[u for u in (self.search_url,self.opened_url) if u]
             body='if(!'+json.dumps(allowed)+'.includes(page.url()))return {rio_research:{error:"SEARCH_CHANGED"}};await page.goto('+json.dumps(chosen['url'])+',{waitUntil:"domcontentloaded",timeout:15000});return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};'
             data=await self.code(body)
-            if not public_url(data.get('url')):raise ResearchError('FINAL_PAGE_NOT_PUBLIC_RESEARCH')
+            # Search engines can redirect an HTTPS result to an old HTTP article.
+            # Try its identical public URL over TLS once, without reading HTTP
+            # content or disabling certificate checks. Never try other variants.
+            final=data.get('url','')
+            secure='https:'+final[5:] if final.startswith('http:') else None
+            if secure and public_url(secure):
+                data=await self.code('if(page.url()!=='+json.dumps(final)+')return {rio_research:{error:"SEARCH_CHANGED"}};'
+                    'await page.goto('+json.dumps(secure)+',{waitUntil:"domcontentloaded",timeout:15000});'
+                    'return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};')
+            if not public_url(data.get('url')):
+                self.failed_navigation_url=data.get('url')
+                scheme=urlparse(data.get('url','')).scheme
+                raise ResearchError('FINAL_PAGE_NOT_PUBLIC_RESEARCH_'+({'http':'HTTP','chrome-error':'NETWORK_ERROR'}.get(scheme,'REJECTED')))
             self.opened_url=data['url']
             self.opened_index=index+1
             return {'ok':True,'status':'RESULT_PAGE_OPENED','index':self.opened_index,**data}
@@ -174,18 +213,20 @@ async def run():
     from mcp.client.stdio import stdio_client
     from mcp.types import Implementation
     os.umask(0o077)
+    owner=asyncio.current_task()
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM,owner.cancel)
     mode=mode_name(os.getenv('RIO_BROWSER_TRANSPORT','extension'))
     private_directory(ROOT)
     if mode=='extension' and not (profile(mode)/'Local State').is_file():raise ResearchError('DEDICATED_PROFILE_REQUIRED')
     if mode=='managed':
         private_directory(profile(mode))
-        if os.path.lexists(profile(mode)/'SingletonLock'):raise ResearchError('DEDICATED_PROFILE_ALREADY_OPEN')
+        if profile_in_use(mode):raise ResearchError('DEDICATED_PROFILE_ALREADY_OPEN')
     if mode=='cdp':cdp_identity()
     proof=private_directory(ROOT/'proof'/mode) if mode!='extension' else private_directory(ROOT/'proof')
     endpoint=transport_endpoint(mode)
     if endpoint.exists():raise ResearchError('SOCKET_ALREADY_EXISTS')
     cli=Path.home()/'.local/share/rio-browser/mcp-runtime/node_modules/@playwright/mcp/cli.js'
-    env={k:os.environ[k] for k in ('PATH','DISPLAY','WAYLAND_DISPLAY','XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS','LANG') if k in os.environ}
+    env={k:os.environ[k] for k in ('PATH','DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS','LANG') if k in os.environ}
     params=StdioServerParameters(command='node',args=[str(cli),*mcp_arguments(mode,proof)],cwd=str(ROOT),env=env)
     with open(os.devnull,'w') as logs:
         async with stdio_client(params,errlog=logs) as (reader,writer):
@@ -213,7 +254,7 @@ async def run():
 
 if __name__=='__main__':
     try:asyncio.run(run())
-    except KeyboardInterrupt:pass
+    except (KeyboardInterrupt,asyncio.CancelledError):pass
     except BaseException as e:
         print(json.dumps({'status':'RESEARCH_START_FAILED','error_type':type(e).__name__}),flush=True)
         raise SystemExit(1)
