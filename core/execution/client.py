@@ -27,9 +27,24 @@ def enabled():
 
 class CoreClient:
     def __init__(self, path=None):
-        self.path = Path(path or os.getenv('RIO_CORE_SOCKET', str(Path.home()/'.local/state/rio/core/service.sock')))
+        selected=None
+        if path is None and 'RIO_CORE_SOCKET' not in os.environ:
+            selection=Path.home()/'.config/rio-execution/selection.json'
+            try:
+                info=selection.lstat()
+                if stat.S_ISREG(info.st_mode) and info.st_uid==os.getuid() and not info.st_mode&0o077 and info.st_size<=4096:
+                    selected=json.loads(selection.read_text()).get('transport')
+            except (OSError,ValueError,AttributeError):pass
+        from .peers import CORE_SOCKET,PeerClient,load_policy
+        self.path = Path(path or os.getenv('RIO_CORE_SOCKET',CORE_SOCKET if selected=='isolated' else str(Path.home()/'.local/state/rio/core/service.sock')))
+        self.peer=None
+        if str(self.path)==CORE_SOCKET:
+            policy=load_policy()
+            if os.getuid()!=policy['operator_uid']:raise ValueError('OPERATOR_ACCOUNT_REQUIRED')
+            self.peer=PeerClient(self.path,policy['core_uid'],timeout=8)
 
     def request(self, op, **args):
+        if self.peer is not None:return self.peer.request(op,**args)
         info = self.path.lstat()
         if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
             raise ValueError('PRIVATE_CORE_REQUIRED')

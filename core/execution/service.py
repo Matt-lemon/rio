@@ -56,6 +56,7 @@ class Application:
             return {'ready': self.store.executor_valid(), 'version': 1, 'automatic_build': False, 'direct_docker': False,
                     'process_uid': os.geteuid(),
                     'docker_socket_access': os.access('/var/run/docker.sock', os.R_OK | os.W_OK),
+                    'isolation_audit':getattr(self,'isolation_audit',None),
                     'executor_token': self.task.executor_token,
                     'source_revision': self.source_revision}
         if op == 'catalog.list':
@@ -144,11 +145,17 @@ class CoreServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     block_on_close = False
 
 
-def serve(root, path, *, application=None, proactive=True):
+def serve(root, path, *, application=None, proactive=True, peer_uid=None):
     os.umask(0o077)
     root = private_directory(root)
     path = Path(path)
-    private_directory(path.parent)
+    if peer_uid is None:
+        private_directory(path.parent)
+    else:
+        if not hasattr(socket,'SO_PEERCRED'):raise ValueError('PEER_CREDENTIALS_REQUIRED')
+        info=path.parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o022:
+            raise ValueError('PEER_DIRECTORY_UNSAFE')
     lock_fd = os.open(root/'service.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     store = application.store if application else Store(root)
@@ -156,7 +163,7 @@ def serve(root, path, *, application=None, proactive=True):
     store.interrupted()
     if path.exists() or path.is_symlink():
         info = path.lstat()
-        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) not in ({0o600} if peer_uid is None else {0o600,0o660}):
             raise ValueError('SOCKET_ALREADY_EXISTS')
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as test:
             try:
@@ -172,7 +179,7 @@ def serve(root, path, *, application=None, proactive=True):
             try:
                 if hasattr(socket, 'SO_PEERCRED'):
                     _, uid, _ = struct.unpack('3i', self.request.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
-                    if uid != os.getuid():
+                    if uid != (os.getuid() if peer_uid is None else peer_uid):
                         raise ValueError('LOCAL_OWNER_REQUIRED')
                 raw = self.rfile.readline(65537)
                 if len(raw) > 65536 or not raw.endswith(b'\n'):
@@ -191,6 +198,9 @@ def serve(root, path, *, application=None, proactive=True):
 
     server = CoreServer(str(path), Handler)
     path.chmod(0o600)
+    if peer_uid is not None:
+        from .peers import grant_socket
+        grant_socket(path,peer_uid)
     worker = threading.Thread(target=app.task.loop, daemon=True)
     worker.start()
     def watch():
