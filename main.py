@@ -523,6 +523,8 @@ def main(argv=None) -> None:
     voice_options = parser.add_mutually_exclusive_group()
     voice_options.add_argument("--text-only", action="store_true", help="No audio device or TTS requests")
     voice_options.add_argument("--voice", action="store_true", help="Use local audio output")
+    parser.add_argument('--core', action='store_true', help='Use the persistent execution service')
+    parser.add_argument('--legacy-core', action='store_true', help='Use the prior executor for this connection')
     commands = parser.add_mutually_exclusive_group()
     commands.add_argument("--dubbing", metavar="COMMAND", help="Run one explicit dubbing command, then exit")
     commands.add_argument("--pc", metavar="COMMAND", help="Run one PC on/off/status command without loading chat or audio")
@@ -532,6 +534,23 @@ def main(argv=None) -> None:
     commands.add_argument("--spotify", metavar="COMMAND", help="Local Spotify play, pause or status without loading chat or audio")
     parser.add_argument("--home-web-port", type=int, default=18445, help="Loopback home web port (default 18445)")
     args = parser.parse_args(argv)
+    from core.execution.client import enabled as execution_enabled
+    if not args.legacy_core and (args.core or execution_enabled()) and not args.home_web:
+        from core.execution.console import run as run_core
+        command = next((prefix + value for prefix, value in (
+            ('/spotify ', args.spotify), ('/browse ', args.browse), ('/home ', args.home),
+            ('/pc ', args.pc), ('/dubbing ', args.dubbing)) if value is not None), None)
+        text_only = args.text_only or (not args.voice and (sys.platform != 'win32' or os.getenv('RIO_TEXT_ONLY', '0') == '1'))
+        try:
+            if text_only:
+                run_core(TextVoice(), read_input=read_user_input, one_shot=command)
+            else:
+                from rio_voice import RioVoice
+                with RioVoice() as voice:
+                    run_core(voice, read_input=read_user_input, one_shot=command)
+        except (OSError, ValueError):
+            print('리오 실행 코어에 연결하지 못했어요. 기존 실행기로 자동 재전송하지 않아요.')
+        return
     if args.spotify is not None:
         text = args.spotify.strip()
         if not text:

@@ -26,59 +26,13 @@ def spec(name,description,effect,**properties):
 
 
 def catalog():
-    """Read local binding metadata only. No credentials, API calls or ledger writes."""
-    tools=[
-        spec('browser.search','전용 Edge에 검색 결과를 보여준다.', 'navigate',query=TEXT),
-        spec('browser.open_topic','주제에 맞는 공개 페이지를 검색하고 연다. 뉴스 기사 열기 포함.', 'navigate',query=TEXT),
-        spec('browser.open_result','이 대화에서 확인한 검색 결과 번호를 연다.', 'navigate',index={'type':'integer','minimum':1,'maximum':5}),
-        spec('browser.back_results','이 대화의 마지막 검색 결과 목록으로 돌아간다.', 'navigate'),
-        spec('browser.status','전용 브라우저 연결과 현재 허용된 페이지 상태.', 'read'),
-        spec('web.search','화면을 열 필요 없이 최신 사실·용어·출처를 찾아 답한다.', 'read',query=TEXT),
-        spec('spotify.control','NAS Spotify 음악 상태·재생·일시정지. TV나 브라우저 영상 조작 아님.', 'control',action=enum('status','play','pause')),
-        spec('home.status','Google Home 연결 상태를 읽는다.', 'read'),
-        spec('pc.status','메인 PC 상태를 읽는다. 전원 조작은 제공하지 않는다.', 'read'),
-        spec('dubbing.health','기존 더빙 서버 상태만 읽는다. 서버 시작·영상 제출 아님.', 'read'),
-    ]
-    from core.home.smartthings_pc import read_private,PcError
-    try:
-        from core.home.tools import validate_targets
-        p=Path(os.getenv('RIO_HOME_TARGET_FILE',str(Path.home()/'.config/rio/google-home-lights.json')))
-        lights=validate_targets(json.loads(read_private(p))) if p.exists() else {}
-        flag=os.getenv('RIO_HOME_EXECUTION_ENABLED')
-        if flag is not None:
-            if flag.lower() not in {'1','true','yes'}:lights={}
-        else:
-            p=Path(os.getenv('RIO_HOME_POLICY_FILE',str(Path.home()/'.config/rio/google-home-policy.json')))
-            policy=json.loads(read_private(p)) if p.exists() else {}
-            lights={k:v for k,v in lights.items() if policy.get('enabled') is True and v['alias'] in policy.get('allowed_aliases',[])}
-        if lights:tools.append(spec('home.light','등록 조명 켜기·끄기만. 밝기·온도·PC·환풍기·청소기 제외.', 'control',target=enum(*lights),action=enum('on','off')))
-    except (OSError,ValueError,KeyError,TypeError,PcError):pass
-    try:
-        from core.home.device_controls import validate_device_targets
-        p=Path(os.getenv('RIO_HOME_DEVICE_TARGET_FILE',str(Path.home()/'.config/rio/google-home-devices.json')))
-        devices=validate_device_targets(json.loads(read_private(p))) if p.exists() else {}
-        if devices.get('enabled'):
-            for target,binding in devices['targets'].items():
-                tools.append(spec('home.device.'+target,'등록된 '+target+'의 허용 기능만. 온도 변경·새 기능 추정 금지.', 'control',action=enum(*binding['allowed_commands'])))
-    except (OSError,ValueError,KeyError,TypeError,PcError):pass
-    if os.getenv('RIO_WEB_SEARCH_ENABLED','true').lower() not in {'1','true','yes','on'}:
-        tools=[t for t in tools if t['name']!='web.search']
-    return {tool['name']:tool for tool in tools}
+    from core.execution.catalog import Catalog
+    return Catalog().legacy()
 
 
 def validate_arguments(schema,args):
-    if not isinstance(args,dict) or set(args)!=set(schema['properties']):return False
-    for key,rule in schema['properties'].items():
-        value=args[key]
-        if rule['type']=='string':
-            if not isinstance(value,str):return False
-            if not rule.get('minLength',0)<=len(value)<=rule.get('maxLength',200):return False
-            if any(ord(c)<32 for c in value):return False
-        elif rule['type']=='integer':
-            if type(value) is not int or not rule.get('minimum',0)<=value<=rule.get('maximum',999):return False
-        else:return False
-        if 'enum' in rule and value not in rule['enum']:return False
-    return True
+    from core.execution.types import validate
+    return validate(schema,args)
 
 
 def local_plan(payload):
@@ -113,8 +67,9 @@ def local_plan(payload):
 
 
 class ContextTools:
-    def __init__(self,planner=local_plan,clock=time.monotonic):
+    def __init__(self,planner=local_plan,clock=time.monotonic,catalog_provider=None):
         self.planner=planner;self.clock=clock;self.events=[]
+        self.catalog_provider=catalog_provider
 
     def clear(self):self.events.clear()
 
@@ -176,7 +131,7 @@ class ContextTools:
 
     def choose(self,text,history,browser):
         if SENSITIVE.search(text) or text.startswith('/'):return {'kind':'chat','planned':False}
-        tools=catalog()
+        tools=self.catalog_provider() if self.catalog_provider else catalog()
         def brief(value,limit=320):
             if SENSITIVE.search(str(value)):return '[민감 정보 생략]'
             return re.sub(r'https?://\S+','[확인된 링크]',str(value))[:limit]
@@ -215,21 +170,5 @@ class ContextTools:
                     'planner_error':type(exc).__name__}
 
     def execute(self,decision,browser,handlers):
-        name,args=decision['name'],decision['arguments']
-        # Refresh the contract before dispatch. Adapter policy checks are additional.
-        tools=catalog()
-        if name not in tools or not validate_arguments(tools[name]['parameters'],args):
-            return '도구 설정이 달라져서 실행하지 않았어. 다시 요청해 줘.'
-        if name.startswith('browser.'):
-            operation=name.split('.')[1]
-            if operation=='open_topic':return browser.open_topic(args['query'])
-            command={'search':lambda:'search '+args['query'],'open_result':lambda:'open '+str(args['index']),
-                     'back_results':lambda:'back','status':lambda:'status'}[operation]()
-            return browser._run(command)
-        if name=='spotify.control':return handlers['spotify']('/spotify '+args['action'])
-        if name=='home.light':return handlers['home']('/home '+args['target']+' '+args['action'])
-        if name.startswith('home.device.'):return handlers['home']('/home '+name.removeprefix('home.device.')+' '+args['action'])
-        if name=='home.status':return handlers['home']('/home status')
-        if name=='pc.status':return handlers['pc']('/pc status')
-        if name=='dubbing.health':return handlers['dubbing']('/dubbing health')
-        raise ValueError('Tool requires the existing web-evidence path')
+        from core.execution.catalog import Catalog
+        return Catalog().compat_execute(decision,browser,handlers,contracts=catalog())

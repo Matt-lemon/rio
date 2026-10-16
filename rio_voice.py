@@ -391,12 +391,19 @@ class RioVoice:
     def __init__(self) -> None:
         self._buffer = ""
         self._closed = False
+        self.audio_succeeded = False
+        self.audio_failed = False
         self._tts_queue: queue.Queue[str | None] = queue.Queue()
         self._audio_queue: queue.Queue[bytes | None] = queue.Queue()
         self._tts_thread = threading.Thread(target=self._tts_worker, daemon=True)
         self._audio_thread = threading.Thread(target=self._audio_worker, daemon=True)
         self._tts_thread.start()
         self._audio_thread.start()
+
+    def begin_utterance(self) -> None:
+        """Called after wait() by the core presenter; settings remain unchanged."""
+        self.audio_succeeded = False
+        self.audio_failed = False
 
     def feed(self, token: str) -> None:
         if self._closed:
@@ -460,6 +467,8 @@ class RioVoice:
                     print(f"\n[TTS] {len(spoken)} chars / {time.perf_counter() - start:.3f}s")
                     self._audio_queue.put(response.content)
                 except Exception as exc:
+                    self.audio_failed = True
+                    self.audio_succeeded = False
                     print(f"\n[TTS ERROR] {exc}")
                 finally:
                     self._tts_queue.task_done()
@@ -502,9 +511,12 @@ class RioVoice:
                                 block = block[:-1]
                             if block:
                                 stream.write(block)
+                        self.audio_succeeded = bool(pcm) and not self.audio_failed
                     finally:
                         self._audio_queue.task_done()
         except Exception as exc:
+            self.audio_failed = True
+            self.audio_succeeded = False
             print(f"\n[AUDIO ERROR] {exc}")
             # Keep wait()/close() usable if the output device fails.
             while True:

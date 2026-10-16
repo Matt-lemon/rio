@@ -1,0 +1,20 @@
+[Unit]
+Description=Rio persistent execution core
+After=network.target
+
+[Service]
+Type=exec
+WorkingDirectory=/home/example/rio-nas-pc-integration-20261012
+ExecStart=/home/example/.local/share/rio-current-knowledge/venv/bin/python -u -m core.execution.service
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=RIO_EXECUTION_CORE=1
+Environment=RIO_TOOLS_SOCKET=/home/example/.local/state/rio/tools-llm-20261014/service.sock
+UMask=0077
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=8
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

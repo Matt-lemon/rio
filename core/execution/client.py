@@ -1,0 +1,56 @@
+"""Private local IPC. A failed submission is never rerouted to the old executor."""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import socket
+import stat
+import struct
+
+from .types import encoded
+
+
+def enabled():
+    value = os.getenv('RIO_EXECUTION_CORE')
+    if value is not None:
+        return value.lower() in {'1', 'true', 'yes', 'on'}
+    path = Path.home()/'.config/rio/execution-core.json'
+    try:
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_size > 4096:
+            return False
+        return json.loads(path.read_text()).get('enabled') is True
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
+class CoreClient:
+    def __init__(self, path=None):
+        self.path = Path(path or os.getenv('RIO_CORE_SOCKET', str(Path.home()/'.local/state/rio/core/service.sock')))
+
+    def request(self, op, **args):
+        info = self.path.lstat()
+        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+            raise ValueError('PRIVATE_CORE_REQUIRED')
+        data = (encoded({'op': op, **args}) + '\n').encode()
+        if len(data) > 65536:
+            raise ValueError('REQUEST_LIMIT')
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+            connection.settimeout(8)
+            connection.connect(str(self.path))
+            if hasattr(socket, 'SO_PEERCRED'):
+                _, uid, _ = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+                if uid != os.getuid():
+                    raise ValueError('CORE_OWNER_CHANGED')
+            connection.sendall(data)
+            raw = bytearray()
+            while not raw.endswith(b'\n'):
+                block = connection.recv(65536)
+                if not block or len(raw) + len(block) > 524288:
+                    raise ValueError('RESPONSE_LIMIT')
+                raw.extend(block)
+        result = json.loads(raw)
+        if result.get('ok') is not True:
+            raise ValueError(result.get('code', 'CORE_UNAVAILABLE'))
+        return result['result']

@@ -10,6 +10,9 @@ import pytest
 
 @pytest.fixture
 def runtime(monkeypatch):
+    # A developer's selected production core must never redirect mocked tests
+    # into a real browser, player or device service.
+    monkeypatch.setenv('RIO_EXECUTION_CORE', '0')
     root = Path(__file__).resolve().parents[1]
     monkeypatch.syspath_prepend(str(root))
     if importlib.util.find_spec('yaml') is None:
@@ -25,6 +28,27 @@ def runtime(monkeypatch):
     # Legacy route tests must not accidentally call the real model selector.
     monkeypatch.setattr(module, 'RIO_CONTEXT_TOOLS_ENABLED', False)
     return module
+
+
+def test_explicit_core_flag_routes_to_service_presenter_only(runtime, monkeypatch):
+    from core.execution import console
+    presenter = Mock(return_value=True)
+    monkeypatch.setattr(console, 'run', presenter)
+    legacy = Mock(side_effect=AssertionError('legacy must not execute'))
+    monkeypatch.setattr(runtime, 'handle_home_command', legacy)
+    runtime.main(['--core', '--text-only', '--home', 'status'])
+    assert presenter.call_args.kwargs['one_shot'] == '/home status'
+    legacy.assert_not_called()
+
+
+def test_core_submission_failure_never_falls_back_to_legacy(runtime, monkeypatch, capsys):
+    from core.execution import console
+    monkeypatch.setattr(console, 'run', Mock(side_effect=OSError('private endpoint unavailable')))
+    legacy = Mock(side_effect=AssertionError('must not replay'))
+    monkeypatch.setattr(runtime, 'handle_pc_command', legacy)
+    runtime.main(['--core', '--text-only', '--pc', 'on'])
+    assert '자동 재전송하지' in capsys.readouterr().out
+    legacy.assert_not_called()
 
 
 def test_one_shot_dubbing_does_not_start_chat_voice_or_memory(runtime, monkeypatch, capsys):

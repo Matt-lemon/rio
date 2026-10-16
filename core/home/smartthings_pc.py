@@ -169,20 +169,25 @@ class WakeLedger:
     def __exit__(self, *args):
         self.db.close()
 
-    def reserve(self, target: str) -> str | None:
-        return self._reserve(target, "wake_requests")
+    def reserve(self, target: str, request_key: str | None = None) -> str | None:
+        return self._reserve(target, "wake_requests", request_key)
 
-    def reserve_shutdown(self, target: str) -> str | None:
-        return self._reserve(target, "shutdown_requests")
+    def reserve_shutdown(self, target: str, request_key: str | None = None) -> str | None:
+        return self._reserve(target, "shutdown_requests", request_key)
 
-    def _reserve(self, target: str, table: str) -> str | None:
+    def _reserve(self, target: str, table: str, request_key: str | None = None) -> str | None:
+        if request_key is not None and not re.fullmatch(r'[A-Za-z0-9_-]{8,100}', request_key):
+            raise ValueError('INVALID_REQUEST_ID')
         self.db.execute("BEGIN IMMEDIATE")
         try:
+            if request_key is not None and any(self.db.execute(f'SELECT 1 FROM {t} WHERE id=?', (request_key,)).fetchone()
+                                               for t in ('wake_requests', 'shutdown_requests')):
+                return None
             for pending_table in ("wake_requests", "shutdown_requests"):
                 if self.db.execute(f"SELECT 1 FROM {pending_table} WHERE target=? "
                                    "AND state IN ('DISPATCHING','ACCEPTED','UNKNOWN')", (target,)).fetchone():
                     return None
-            key = str(uuid.uuid4())
+            key = request_key or str(uuid.uuid4())
             self.db.execute(f"INSERT INTO {table} VALUES (?,?,?,?)",
                             (key, target, "DISPATCHING", time.time()))
             return key
@@ -250,14 +255,14 @@ class PcController:
         return {"switch": switch["value"], "switch_timestamp": switch["timestamp"],
                 "pc_ssh_reachable": reachable, "models_ready": "NOT_CHECKED"}
 
-    def wake(self) -> dict:
+    def wake(self, request_key: str | None = None) -> dict:
         observation = self.observe()
         if observation["pc_ssh_reachable"]:
             return {**observation, "result": "ALREADY_REACHABLE", "commands_sent": 0}
         if observation["switch"] == "on":
             return {**observation, "result": "ON_NOT_REACHABLE", "commands_sent": 0}
         with WakeLedger(self.ledger_path) as ledger:
-            key = ledger.reserve(self.binding["device_id"])
+            key = ledger.reserve(self.binding["device_id"], request_key)
             if key is None:
                 return {**observation, "result": "PENDING_DO_NOT_RETRY", "commands_sent": 0}
             try:
@@ -277,7 +282,7 @@ class PcController:
                 return {**observation, "result": "REJECTED" if rejected else "UNKNOWN",
                         "code": code, "commands_sent": 1}
 
-    def shutdown(self) -> dict:
+    def shutdown(self, request_key: str | None = None) -> dict:
         observation = self.observe()
         if observation["switch"] == "off" and not observation["pc_ssh_reachable"]:
             return {**observation, "result": "OFF_NOT_REACHABLE", "commands_sent": 0}
@@ -286,7 +291,7 @@ class PcController:
             return {**observation, "result": "SHUTDOWN_" + ("BUSY" if readiness == "BUSY" else "UNVERIFIED"),
                     "commands_sent": 0}
         with WakeLedger(self.ledger_path) as ledger:
-            key = ledger.reserve_shutdown(self.binding["device_id"])
+            key = ledger.reserve_shutdown(self.binding["device_id"], request_key)
             if key is None:
                 return {**observation, "result": "PENDING_DO_NOT_RETRY", "commands_sent": 0}
             try:

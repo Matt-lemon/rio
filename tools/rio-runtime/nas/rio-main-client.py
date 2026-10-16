@@ -14,6 +14,11 @@ def main() -> int:
     if len(sys.argv) != 1:
         print("사용법: rio-main (접속 후 요청 입력, /exit로 종료)", file=sys.stderr)
         return 2
+    project = Path('/home/example/rio-nas-pc-integration-20261012')
+    sys.path.insert(0, str(project))
+    from core.execution.client import enabled
+    if enabled():
+        os.execv(sys.executable, [sys.executable, str(project/'main.py'), '--core', '--text-only'])
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
     path = runtime / "rio-main.sock"
     try:

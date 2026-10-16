@@ -1,0 +1,259 @@
+"""Structured wrappers around existing protected implementations; no new control API."""
+from __future__ import annotations
+
+import json
+import os
+import re
+from pathlib import Path
+import socket
+import stat
+import time
+
+from .types import ToolResult, encoded, safe_text
+
+
+def registry_request(action, **arguments):
+    if action not in {'capabilities', 'list', 'describe', 'call', 'job'}:
+        raise ValueError('REGISTRY_OPERATION_FORBIDDEN')
+    path = Path(os.getenv('RIO_TOOLS_SOCKET', str(Path.home()/'.local/state/rio/tools/service.sock')))
+    info = path.lstat()
+    if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError('PRIVATE_REGISTRY_REQUIRED')
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        client.settimeout(5)
+        client.connect(str(path))
+        client.sendall((encoded({'action': action, **arguments}) + '\n').encode())
+        data = bytearray()
+        while not data.endswith(b'\n'):
+            block = client.recv(65536)
+            if not block or len(data) + len(block) > 262144:
+                raise ValueError('REGISTRY_RESPONSE_LIMIT')
+            data.extend(block)
+    result = json.loads(data)
+    if result.get('ok') is not True:
+        raise ValueError('REGISTRY_UNAVAILABLE')
+    return result['result']
+
+
+def registry_search(query):
+    """Search metadata locally; mixed Korean/identifier phrases need not be substrings."""
+    rows = registry_request('list', search='')
+    terms = re.findall(r'[a-z0-9]+|[가-힣]+', query.casefold())
+    terms = [t for t in terms if t not in {'도구', '검사', '검색', '등록된', '찾기', 'tool', 'tools'}] or terms
+    if '자막' in terms:
+        terms.append('srt')
+    ranked = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        contract = row.get('contract', row)
+        haystack = ' '.join(str(contract.get(k, '')) for k in ('name', 'description', 'capability')).casefold()
+        score = sum(t in haystack for t in terms)
+        if score:
+            ranked.append((score, row))
+    return [row for _, row in sorted(ranked, key=lambda pair: pair[0], reverse=True)]
+
+
+class Adapters:
+    def __init__(self, store):
+        self.store = store
+
+    def call_checked(self, descriptor, args, key, browser):
+        return self.call(descriptor['name'], args, key, browser, expected_hash=descriptor.get('package_hash'))
+
+    def call(self, name, args, key, browser, *, expected_hash=None):
+        if name.startswith('registered.'):
+            from .catalog import approved_generated
+            if registry_request('capabilities').get('expected_hash') is not True:
+                return ToolResult('REJECTED', '등록 서비스가 버전 고정 호출을 지원하지 않아 실행하지 않았어.', request_id=key)
+            original = name.removeprefix('registered.')
+            item = registry_request('describe', name=original)
+            if not approved_generated(item):
+                return ToolResult('REJECTED', '검증·승인된 읽기 도구가 아니라 실행하지 않았어.', request_id=key)
+            if expected_hash is not None and item['hash'] != expected_hash:
+                return ToolResult('REJECTED', '등록 도구 버전이 실행 직전에 바뀌어 멈췄어.', request_id=key, code='TOOL_REVISION_CHANGED')
+            result = registry_request('call', name=original, args=args, request_id=key, expected_hash=item['hash'])
+            until = time.monotonic() + 20
+            while result.get('status') in {'QUEUED', 'RUNNING'} and time.monotonic() < until:
+                time.sleep(0.2)
+                result = registry_request('job', request_id=key)
+            return self.registered_result(result, key, item['hash'])
+        if name.startswith('browser.'):
+            from core.research_browser import format_reply
+            op = name.split('.', 1)[1]
+            owner = self.store.row("SELECT value FROM meta WHERE key='browser_owner'")
+            session = getattr(browser, 'session_id', '')
+            if op in {'open_result', 'back_results'} and (not owner or owner['value'] != session):
+                return ToolResult('NEED_INPUT', '다른 대화에서 검색 화면이 바뀌었어. 이 대화에서 다시 검색해 줘.', request_id=key)
+            if op == 'open_topic':
+                raw = browser.open_topic_result(args['query'])
+            else:
+                command = {'search': lambda: 'search ' + args['query'],
+                           'open_result': lambda: 'open ' + str(args['index']),
+                           'back_results': lambda: 'back', 'status': lambda: 'status'}[op]()
+                raw = browser.run_result(command)
+            if op in {'search', 'open_topic'}:
+                with self.store.transaction() as db:
+                    db.execute("INSERT INTO meta VALUES('browser_owner',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (session,))
+            evidence = {k: raw[k] for k in ('status', 'title', 'url', 'results', 'query', 'index') if k in raw}
+            # A title and URL are navigation evidence, never page-content evidence.
+            evidence['content_read'] = False
+            return ToolResult('NEED_INPUT' if raw.get('needs_selection') else 'OBSERVED' if raw.get('ok') else 'UNKNOWN',
+                              format_reply(raw), evidence, key, 'NAVIGATION' if raw.get('ok') else 'NONE')
+        if name == 'web.search':
+            from dataclasses import asdict
+            from web_search import web_search
+            rows = [asdict(r) for r in web_search(args['query'], max_results=4, timeout=10)]
+            message = '검색 요약문 기준 자료야.\n' + '\n'.join(
+                r['title'] + '\n' + r['snippet'] + '\n' + r['url'] for r in rows) if rows else '검색 결과를 확인하지 못했어.'
+            return ToolResult('OBSERVED' if rows else 'UNAVAILABLE', message,
+                              {'results': rows, 'content_read': False}, key, 'SEARCH_SNIPPETS' if rows else 'NONE')
+        if name == 'spotify.control':
+            from core.spotify import SpotifyController
+            raw = SpotifyController().call(args['action'])
+            state = raw.get('playback')
+            message = {'Playing': 'Spotify가 재생 중이라고 보고했어.', 'Paused': 'Spotify가 일시정지라고 보고했어.',
+                       'Stopped': 'Spotify가 정지 상태라고 보고했어.'}.get(state, '음악 요청 결과를 확인하지 못했어. 자동으로 다시 보내지 않을게.')
+            return ToolResult(raw['status'], message, raw, key, 'OBSERVED' if state else 'NONE', raw.get('code'))
+        if name.startswith('spotify.timer.'):
+            return self.timer(name, args, key)
+        if name.startswith('home.'):
+            return self.home(name, args, key)
+        if name in {'pc.status', 'pc.wake', 'pc.shutdown'}:
+            from core.home.smartthings_pc import controller_from_environment, result_message
+            controller = controller_from_environment()
+            action = {'pc.status': 'status', 'pc.wake': 'on', 'pc.shutdown': 'off'}[name]
+            raw = controller.observe() if action == 'status' else controller.wake(key) if action == 'on' else controller.shutdown(key)
+            code = raw.get('result')
+            state = 'OBSERVED' if action == 'status' or code in {'ALREADY_REACHABLE', 'OFF_NOT_REACHABLE'} else 'DISPATCHED' if code == 'ACCEPTED' else 'UNKNOWN' if code in {'UNKNOWN', 'PENDING_DO_NOT_RETRY'} else 'REJECTED'
+            return ToolResult(state, result_message(raw, action), raw, key, 'OBSERVED' if state == 'OBSERVED' else 'NONE', code)
+        if name == 'dubbing.health':
+            from rio_dubbing_client import DubbingClient
+            from rio_dubbing_tools import _format_health
+            raw = DubbingClient().health()
+            return ToolResult('OBSERVED', _format_health(raw),
+                              {'ok': raw.get('ok'), 'worker': {k: raw.get('worker', {}).get(k) for k in ('enabled', 'accepting_jobs', 'state')}}, key, 'OBSERVED')
+        if name.startswith('registry.'):
+            raw = registry_search(args['query']) if name.endswith('search') else registry_request('describe', name=args['name'])
+            rows = raw if isinstance(raw, list) else [raw]
+            public = [{k: row.get('contract', row).get(k) for k in
+                       ('name', 'description', 'version', 'input_schema', 'output_schema', 'capability', 'permissions')}
+                      for row in rows[:20] if isinstance(row, dict)]
+            message = '등록 도구의 규격이야. 실행이나 제작은 하지 않았어.\n' + '\n'.join(
+                str(row.get('name')) + ': ' + str(row.get('description', ''))[:200] for row in public)
+            if name.endswith('describe') and public:
+                message += '\n입력 규격: ' + safe_text(encoded(public[0].get('input_schema')), 2000)
+            return ToolResult('OBSERVED', message if public else
+                              '재사용할 등록 도구를 찾지 못했어. 필요한 기능과 검증 방법을 먼저 제안할게.', {'tools': public}, key, 'REGISTRY_METADATA')
+        if name == 'core.status':
+            return ToolResult('OBSERVED', '리오 실행 코어가 응답하고 있어.',
+                              {'persistent_tasks': True, 'max_calls': 8, 'max_seconds': 300,
+                               'automatic_build': False, 'page_content_reader': False}, key, 'OBSERVED')
+        if name.startswith('legacy.'):
+            family = name.split('.')[1]
+            if not args['command'].startswith('/' + family + ' '):
+                return ToolResult('REJECTED', '명령 범위가 일치하지 않아 실행하지 않았어.', request_id=key)
+            if family == 'home':
+                from core.home.main_adapter import handle_home_command as callback
+            elif family == 'pc':
+                from core.home.smartthings_pc import handle_pc_command as callback
+            else:
+                from rio_dubbing_tools import handle_dubbing_command as callback
+            # Opaque legacy replies are delivered as such, never parsed into an
+            # acknowledgement or used to authorize a follow-up physical change.
+            return ToolResult('RETURNED', callback(args['command']) or '기존 명령을 확인하지 못했어.',
+                              {'structured_outcome': False}, key)
+        raise ValueError('UNKNOWN_TOOL')
+
+    def home(self, name, args, key):
+        from core.home.main_adapter import registry_from_environment
+        from core.home.tools import user_message, HomeToolRegistry
+        registry = None
+        try:
+            if name.startswith('home.device.'):
+                from core.home.device_controls import registry_from_environment as devices
+                registry = devices()
+                raw = registry.wait_result(registry.execute(name.removeprefix('home.device.'), args['action'], key))
+            else:
+                registry = registry_from_environment()
+                if name == 'home.status':
+                    raw = registry.call('home_get_status', {})
+                    ready = raw.get('available') is True and raw.get('permission') == 'GRANTED' and raw.get('bridge_state') == 'READY'
+                    return ToolResult('OBSERVED' if ready else 'UNAVAILABLE',
+                                      'Google Home 연결과 권한이 준비돼 있어.' if ready else 'Google Home 연결이나 권한 확인이 필요해.', raw, key, 'OBSERVED')
+                raw = registry.wait_result(registry.call('home_set_light', {'target': args['target'], 'on': args['action'] == 'on', 'idempotency_key': key}))
+            message = user_message(raw)
+            if name.startswith('home.device.'):
+                message = message.replace('조명', '기기').replace('실제 불 상태', '실제 기기 상태')
+            if raw.get('code') and raw['status'] == 'REJECTED':
+                message += ' 확인 코드: ' + safe_text(raw['code'], 80)
+            return ToolResult(raw['status'], message, raw, raw.get('request_id', key),
+                              'SDK_ACK' if raw['status'] == 'SUCCEEDED' else 'NONE', raw.get('code'))
+        finally:
+            if registry is not None:
+                registry.close()
+
+    def status(self, name, args, key):
+        """Known result lookup only; this method never dispatches an operation."""
+        if name.startswith('registered.'):
+            return self.registered_result(registry_request('job', request_id=key), key)
+        if name == 'home.light' or name.startswith('home.device.'):
+            from core.home.main_adapter import registry_from_environment
+            from core.home.tools import HomeToolRegistry, user_message
+            registry = registry_from_environment()
+            try:
+                if not registry.ledger_path.exists() or not registry.ledger.known(key):
+                    return ToolResult('UNKNOWN', '전송 기록과 결과를 확인하지 못했어. 재전송하지 않을게.', request_id=key)
+                response = registry.transport.result(key)
+                if not isinstance(response, dict) or response.get('http_status') or response.get('status') not in {'SUCCEEDED', 'REJECTED', 'UNKNOWN', 'DISPATCHED'}:
+                    return ToolResult('UNKNOWN', '이전 요청 결과를 확인하지 못했어.', request_id=key)
+                raw = HomeToolRegistry.answer(response, key)
+                registry.ledger.refresh_dispatched(lambda requested: response if requested == key else registry.transport.result(requested))
+                return ToolResult(raw['status'], user_message(raw), raw, key,
+                                  'SDK_ACK' if raw['status'] == 'SUCCEEDED' else 'NONE', raw.get('code'))
+            finally:
+                registry.close()
+        return ToolResult('UNKNOWN', '이 요청은 자동 재전송하지 않아. 새 상태 확인이나 사용자 확인이 필요해.', request_id=key)
+
+    @staticmethod
+    def registered_result(result, key, expected_hash=None):
+        if result.get('request_id') != key or (expected_hash is not None and result.get('package_hash') != expected_hash):
+            return ToolResult('UNKNOWN', '등록 도구의 결과 ID나 버전을 확인하지 못했어.', request_id=key)
+        status = result.get('status')
+        if status == 'SUCCEEDED':
+            return ToolResult('SUCCEEDED', '검증된 기존 도구의 실행 결과야.\n' + safe_text(encoded(result.get('result')), 2000),
+                              {'package_hash': result.get('package_hash'), 'output': result.get('result'),
+                               'result_is_data': True}, key, 'VALIDATED_OUTPUT')
+        if status in {'FAILED', 'CANCELLED'}:
+            return ToolResult(status, '기존 도구 실행이 완료되지 않았어. 결과를 보존하고 멈췄어.', request_id=key)
+        return ToolResult('DISPATCHED' if status in {'QUEUED', 'RUNNING'} else 'UNKNOWN',
+                          '기존 도구 결과를 확인 중이야. 같은 요청을 재전송하지 않아.', request_id=key)
+
+    def timer(self, name, args, key):
+        from core.spotify_timer import TimerStore, format_deadline
+        from core.spotify import SpotifyController
+        timer = TimerStore()
+        if name.endswith('status'):
+            raw = timer.status()
+            message = '음악 정지 예약 상태: ' + raw['state']
+            if raw['state'] == 'ARMED':
+                message = '음악을 ' + format_deadline(raw['due']) + '에 멈출 예정이야.'
+                if not timer.active():
+                    message += ' 다만 예약 실행 서비스는 현재 연결되지 않았어.'
+            return ToolResult('OBSERVED', message, raw, key, 'OBSERVED')
+        if name.endswith('cancel'):
+            raw = timer.cancel()
+            return ToolResult('REJECTED' if raw['state'] == 'EXECUTING' else 'SUCCEEDED', '음악 정지 예약 상태: ' + raw['state'], raw, key)
+        outcome = {}
+        def arm():
+            outcome.update(timer.schedule(args['due'], minimum_delay=10 if args['play'] else 0))
+            return outcome
+        playback = SpotifyController().call('play', before_write=arm) if args['play'] else None
+        if playback is None:
+            arm()
+        if outcome.get('status') != 'SCHEDULED':
+            return ToolResult('REJECTED', '예약을 등록하지 못했어. 재생도 새로 시작하지 않았어.', outcome, key)
+        return ToolResult('UNKNOWN' if playback and playback.get('status') != 'SUCCEEDED' else 'SCHEDULED',
+                          '음악을 ' + format_deadline(outcome['due']) + '에 멈추도록 예약했어.' +
+                          (' 재생 결과는 미확정이야.' if playback and playback.get('status') != 'SUCCEEDED' else ''),
+                          {'timer': outcome, 'playback': playback}, key, 'SCHEDULE_STORED')

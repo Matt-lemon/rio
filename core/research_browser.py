@@ -100,6 +100,10 @@ class BrowserConversation:
         self.results=[];self.index=None;self.checked=0
 
     def _run(self, command):
+        return format_reply(self.run_result(command))
+
+    def run_result(self, command):
+        """Same verified browser operation, with its structured result retained."""
         result=request(command)
         operation=command.removeprefix('/browse ').strip().split()[0]
         self.last_operation={'open':'open_result','back':'back_results'}.get(operation,operation)
@@ -110,7 +114,18 @@ class BrowserConversation:
             self.index=result.get('index');self.checked=time.monotonic()
         elif not result.get('ok'):
             self.clear()
-        return format_reply(result)
+        return result
+
+    def open_topic_result(self, query):
+        result = self.run_result('search ' + query)
+        if not self.results:
+            return result
+        tokens=[t for t in re.findall(r'[\w]+',unicodedata.normalize('NFKC',query).lower())
+                if t not in {'뉴스','기사','관련','페이지','사이트','대한','관한'}]
+        matches=[r for r in self.results if tokens and all(t in unicodedata.normalize('NFKC',r['title']).lower() for t in tokens)]
+        if matches and ('뉴스' in query or '기사' in query or len(matches)==1):
+            return self.run_result('open ' + str(matches[0]['index']))
+        return {**result, 'needs_selection': True}
 
     def open_topic(self, query):
         """One sentence may request any relevant article, not an unspecified exact site."""
