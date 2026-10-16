@@ -15,7 +15,7 @@ def enabled():
     value = os.getenv('RIO_EXECUTION_CORE')
     if value is not None:
         return value.lower() in {'1', 'true', 'yes', 'on'}
-    path = Path.home()/'.config/rio/execution-core.json'
+    path = Path.home()/'.config/rio-execution/selection.json'
     try:
         info = path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_size > 4096:

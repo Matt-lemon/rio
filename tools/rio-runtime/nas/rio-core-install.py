@@ -87,12 +87,12 @@ def main():
                 if time.monotonic() >= deadline:
                     raise
                 time.sleep(.2)
-        directory = private_directory(Path.home()/'.config/rio')
-        atomic_copy(json.dumps({'enabled': True, 'version': 1}).encode(), directory/'execution-core.json', 0o600)
+        directory = private_directory(Path.home()/'.config/rio-execution')
+        atomic_copy(json.dumps({'enabled': True, 'version': 1}).encode(), directory/'selection.json', 0o600)
         print('New conversations use the core. No existing conversation was disconnected.')
     if args.use_legacy:
-        directory = private_directory(Path.home()/'.config/rio')
-        atomic_copy(json.dumps({'enabled': False, 'version': 1}).encode(), directory/'execution-core.json', 0o600)
+        directory = private_directory(Path.home()/'.config/rio-execution')
+        atomic_copy(json.dumps({'enabled': False, 'version': 1}).encode(), directory/'selection.json', 0o600)
         print('New conversations use the prior executor. Task/effect records and running core are preserved.')
 
 

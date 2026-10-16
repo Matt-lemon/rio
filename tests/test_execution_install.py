@@ -1,4 +1,5 @@
 import importlib.util
+import stat
 from pathlib import Path
 
 import pytest
@@ -37,3 +38,22 @@ def test_unknown_link_is_rejected_without_touching_its_target(tmp_path, installe
         installer.install_file(source, target, tmp_path, 0o755)
     assert other.read_text() == 'preserve'
     assert target.is_symlink()
+
+
+def test_selection_uses_own_private_root_without_changing_shared_config(tmp_path, installer, monkeypatch):
+    config = tmp_path/'.config/rio'
+    config.mkdir(parents=True)
+    config.chmod(0o775)
+    monkeypatch.setattr(installer.Path, 'home', lambda: tmp_path)
+    monkeypatch.setattr(installer.sys, 'argv', ['installer', '--use-legacy'])
+    monkeypatch.setattr(installer.os, 'umask', lambda value: None)
+    installer.main()
+    selection = tmp_path/'.config/rio-execution/selection.json'
+    assert stat.S_IMODE(config.stat().st_mode) == 0o775
+    assert stat.S_IMODE(selection.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(selection.stat().st_mode) == 0o600
+    from core.execution.client import enabled
+    monkeypatch.delenv('RIO_EXECUTION_CORE', raising=False)
+    assert enabled() is False
+    selection.write_text('{"enabled":true}')
+    assert enabled() is True
