@@ -124,6 +124,13 @@ class Application:
                 mode = data.get('mode', 'voice')
                 if mode not in {'text', 'voice'}:
                     raise ValueError('INVALID_DELIVERY_MODE')
+                now=self.store.clock()
+                # Foreground work and any live responding/speaking connection
+                # take priority, including work detached from its terminal.
+                if (any(p.get('busy') and 0<=now-p.get('heartbeat',0)<=5 for p in self.presence.values())
+                        or self.store.row("SELECT id FROM tasks WHERE state IN ('QUEUED','RUNNING') LIMIT 1")
+                        or self.store.row("SELECT id FROM calls WHERE state='IN_FLIGHT' LIMIT 1")):
+                    return None
                 return self.suggestions.claim_voice(session, presence) if mode == 'voice' else self.suggestions.claim_text(session, presence)
         if op == 'suggestions.delivered':
             if type(data['audio_ok']) is not bool:

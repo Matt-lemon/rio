@@ -38,6 +38,31 @@ def save_session(path, session, cursor):
         Path(temporary).unlink(missing_ok=True)
 
 
+def speak(voice, text, *, presence, incoming, exit_requested, input_gate, interval=1):
+    """Keep this speaker busy while waiting; queued user input wins new speech."""
+    stop=threading.Event();failed=threading.Event()
+    def heartbeat():
+        while not stop.wait(interval):
+            try:presence()
+            except (OSError,ValueError):failed.set();return
+    presence()
+    worker=None;successful=False
+    try:
+        with input_gate:
+            if exit_requested.is_set() or not incoming.empty():return False
+            worker=threading.Thread(target=heartbeat,daemon=True);worker.start()
+            if hasattr(voice,'begin_utterance'):voice.begin_utterance()
+            voice.feed(text);voice.flush()
+        voice.wait()
+        successful=bool(getattr(voice,'audio_succeeded',False))
+    finally:
+        stop.set()
+        if worker is not None:
+            worker.join(timeout=9)
+            if worker.is_alive():failed.set()
+    return successful and not failed.is_set() and not exit_requested.is_set()
+
+
 def run(voice, *, client=None, read_input=None, one_shot=None):
     client = client or CoreClient()
     ident, path = saved_session()
@@ -51,6 +76,8 @@ def run(voice, *, client=None, read_input=None, one_shot=None):
     connection = uuid.uuid4().hex
     incoming = queue.Queue()
     closed = threading.Event()
+    exit_requested = threading.Event()
+    input_gate = threading.RLock()
     active, busy, voice_ready = None, False, False
     last_heartbeat = 0
     if one_shot is None:
@@ -60,10 +87,13 @@ def run(voice, *, client=None, read_input=None, one_shot=None):
         def reader():
             while not closed.is_set():
                 try:
-                    incoming.put((read_input() if read_input else input('You: ')).strip())
+                    value=(read_input() if read_input else input('You: ')).strip()
                 except (EOFError, KeyboardInterrupt, StopIteration):
-                    incoming.put('/exit')
-                    return
+                    value='/exit'
+                with input_gate:
+                    if value in {'/exit','/quit'}:exit_requested.set()
+                    incoming.put(value)
+                if exit_requested.is_set():return
         threading.Thread(target=reader, daemon=True).start()
     else:
         incoming.put(one_shot)
@@ -144,12 +174,10 @@ def run(voice, *, client=None, read_input=None, one_shot=None):
                         print('Rio:', payload['message'])
                         if event['task_id'] == active:
                             try:
-                                if hasattr(voice, 'begin_utterance'):
-                                    voice.begin_utterance()
-                                voice.feed(payload['message'])
-                                voice.flush()
-                                voice.wait()
-                                voice_ready = bool(getattr(voice, 'audio_succeeded', False))
+                                voice_ready = speak(voice,payload['message'],incoming=incoming,
+                                    exit_requested=exit_requested,input_gate=input_gate,
+                                    presence=lambda:client.request('session.presence',session=session,
+                                        client=connection,busy=True,voice_ready=False,user_input=False))
                             except Exception:
                                 voice_ready = False
                             busy = False
@@ -166,25 +194,24 @@ def run(voice, *, client=None, read_input=None, one_shot=None):
                     client.request('session.presence', session=session, client=connection, busy=busy,
                                    voice_ready=voice_ready, user_input=False)
                     last_heartbeat = time.monotonic()
-                if not busy:
+                if not busy and not exit_requested.is_set() and incoming.empty():
                     mode = 'voice' if voice_ready else 'text'
                     item = client.request('suggestions.claim', session=session, client=connection, mode=mode)
                     if item:
-                        print('Rio:', item['text'])
-                        for row in item['evidence'].get('results', []):
-                            print(row['title'], row['url'])
                         audio_ok = False
-                        if mode == 'voice':
-                            try:
-                                if hasattr(voice, 'begin_utterance'):
-                                    voice.begin_utterance()
-                                voice.feed(item['text'])
-                                voice.flush()
-                                voice.wait()
-                                audio_ok = bool(getattr(voice, 'audio_succeeded', False))
-                            except Exception:
-                                pass
-                            voice_ready = audio_ok
+                        if not exit_requested.is_set() and incoming.empty():
+                            print('Rio:', item['text'])
+                            for row in item['evidence'].get('results', []):
+                                print(row['title'], row['url'])
+                            if mode == 'voice':
+                                try:
+                                    audio_ok = speak(voice,item['text'],incoming=incoming,
+                                        exit_requested=exit_requested,input_gate=input_gate,
+                                        presence=lambda:client.request('session.presence',session=session,
+                                            client=connection,busy=True,voice_ready=False,user_input=False))
+                                except Exception:
+                                    pass
+                                voice_ready = audio_ok
                         client.request('suggestions.delivered', session=session, id=item['id'], audio_ok=audio_ok, mode=mode)
             except (ValueError, OSError):
                 print('Rio: 코어 연결이 끊겼어. 다음 접속에서 저장된 작업을 확인해 줘. 재전송하지 않을게.')

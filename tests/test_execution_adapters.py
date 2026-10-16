@@ -149,6 +149,30 @@ def test_voice_failure_is_recorded_without_repeating_reserved_suggestion(state):
     assert state.events(session)[0]['payload']['audio_ok'] is False
 
 
+@pytest.mark.parametrize('mode',['voice','text'])
+def test_proactive_claim_is_blocked_by_other_live_busy_client(state,mode):
+    app=Application(state);session='a'*32;other='c'*32
+    app.suggestions.ingest('notice','참고 자료가 있어요','busy_other_client')
+    for current,client,busy in [(session,'b'*32,False),(other,'d'*32,True)]:
+        app.dispatch({'op':'session.presence','session':current,'client':client,'busy':busy,'voice_ready':True,'user_input':True})
+    assert app.dispatch({'op':'suggestions.claim','session':session,'client':'b'*32,'mode':mode}) is None
+    assert app.suggestions.pending(session)[0]['delivered'] is None
+    assert state.row("SELECT value FROM meta WHERE key='voice_last'") is None
+    app.dispatch({'op':'session.detach','session':other,'client':'d'*32})
+    assert app.dispatch({'op':'suggestions.claim','session':session,'client':'b'*32,'mode':mode})
+
+
+def test_proactive_claim_is_blocked_by_work_without_a_connected_client(state):
+    app=Application(state);session='a'*32
+    state.create_task('c'*32,'진행 중인 별도 읽기 작업')
+    app.suggestions.ingest('notice','참고 자료가 있어요','busy_background_task')
+    app.dispatch({'op':'session.presence','session':session,'client':'b'*32,'busy':False,'voice_ready':True,'user_input':True})
+    assert app.dispatch({'op':'suggestions.claim','session':session,'client':'b'*32}) is None
+    assert app.suggestions.pending(session)[0]['delivered'] is None
+    with state.transaction() as db:db.execute("UPDATE tasks SET state='COMPLETED'")
+    assert app.dispatch({'op':'suggestions.claim','session':session,'client':'b'*32})
+
+
 def test_proactive_does_not_search_private_task_labels(state):
     from core.execution.proactive import Suggestions
     session = 'a'*32
