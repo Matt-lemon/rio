@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import grp
 import io
 import json
@@ -26,6 +27,8 @@ CORE_UNIT='rio-execution-isolated.service'
 BRIDGE_UNIT='rio-execution-bridge.service'
 CORE_SOCKET='/run/rio-execution-core/service.sock'
 BRIDGE_SOCKET='/run/rio-execution-bridge/service.sock'
+SYSTEM_UNITS=Path('/etc/systemd/system')
+BACKUPS=Path('/var/backups/rio-core')
 
 
 def run(args,**kwargs):
@@ -69,6 +72,15 @@ def root_file(path,data,mode=0o644):
     finally:Path(name).unlink(missing_ok=True)
 
 
+def read_root_file(path):
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(fd,'rb') as stream:
+        meta=os.fstat(stream.fileno())
+        if not stat.S_ISREG(meta.st_mode) or meta.st_uid!=0 or meta.st_mode&0o022 or meta.st_size>1048576:
+            raise ValueError('ROOT_OWNED_INSTALL_RECORD_REQUIRED')
+        return stream.read()
+
+
 def snapshot_database(source,target,uid,gid):
     source=Path(source);target=Path(target)
     info=source.lstat()
@@ -97,6 +109,15 @@ def operator_python(code,*,release=PROJECT,data=None):
     return as_operator(['/usr/bin/env','PYTHONPATH='+str(release),'/usr/bin/python3','-c',code],input=data,cwd=release)
 
 
+def inspect_core_account(core,release):
+    inspected=run(['/usr/sbin/runuser','-u',CORE,'--','/usr/bin/env','-i','HOME='+core.pw_dir,'USER='+CORE,
+                   'PATH=/usr/bin:/bin','PYTHONDONTWRITEBYTECODE=1','/usr/bin/python3','-s','-m','core.execution.isolation_audit'],cwd=release)
+    value=json.loads(inspected.stdout)
+    if value.get('uid')!=core.pw_uid or value.get('docker_file_access') is not False or value.get('docker_connect')!='DENIED':
+        raise ValueError('ACCOUNT_DOCKER_DENIAL_NOT_PROVEN')
+    return value
+
+
 def idle_check():
     op=pwd.getpwnam(OPERATOR)
     for path in Path('/proc').iterdir():
@@ -108,7 +129,7 @@ def idle_check():
                 raise ValueError('CLOSE_CORE_CLIENT_FIRST')
         except (FileNotFoundError,PermissionError):continue
     marker=ROOT_STATE/'current.json'
-    isolated=marker.exists() and json.loads(marker.read_text()).get('status')=='ISOLATED_CORE_ACTIVE'
+    isolated=marker.exists() and json.loads(marker.read_text()).get('status') in {'ISOLATED_CORE_ACTIVE','UPGRADE_RECOVERY_REQUIRED'}
     path=Path('/var/lib/rio-core/core.sqlite3') if isolated else Path(op.pw_dir)/'.local/state/rio/core/core.sqlite3'
     db=sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True)
     try:
@@ -314,10 +335,7 @@ def install(commit):
     home=Path(core.pw_dir)
     if home.exists() and any(home.iterdir()):raise ValueError('CORE_STATE_ALREADY_EXISTS')
     home.mkdir(mode=0o700,exist_ok=True);os.chown(home,core.pw_uid,core.pw_gid);home.chmod(0o700)
-    inspected=run(['/usr/sbin/runuser','-u',CORE,'--','/usr/bin/env','-i','HOME='+core.pw_dir,'USER='+CORE,
-                   'PATH=/usr/bin:/bin','PYTHONDONTWRITEBYTECODE=1','/usr/bin/python3','-s','-m','core.execution.isolation_audit'],cwd=release)
-    account_audit=json.loads(inspected.stdout)
-    if account_audit['docker_file_access'] or account_audit['docker_connect']!='DENIED':raise ValueError('ACCOUNT_DOCKER_DENIAL_NOT_PROVEN')
+    account_audit=inspect_core_account(core,release)
     root_directory(ROOT_STATE,0o700);backups=root_directory('/var/backups/rio-core',0o700)
     backup=backups/str(time.time_ns());backup.mkdir(mode=0o700)
     selection=Path(op.pw_dir)/'.config/rio-execution/selection.json'
@@ -355,17 +373,103 @@ def install(commit):
         raise
 
 
+def upgrade(commit):
+    """Replace only isolated code/units; never restore pre-effect databases."""
+    marker=json.loads(read_root_file(ROOT_STATE/'current.json'))
+    if marker.get('status')!='ISOLATED_CORE_ACTIVE':raise ValueError('ACTIVE_ISOLATED_CORE_REQUIRED')
+    if commit==marker.get('commit'):raise ValueError('REVIEWED_COMMIT_ALREADY_ACTIVE')
+    idle_check()
+    op=pwd.getpwnam(OPERATOR);core=pwd.getpwnam(CORE)
+    if (core.pw_uid!=marker['core_uid'] or op.pw_uid!=marker['operator_uid']
+            or core.pw_dir!='/var/lib/rio-core' or core.pw_shell not in ('/usr/sbin/nologin','/sbin/nologin')
+            or core.pw_gid!=grp.getgrnam(CORE).gr_gid
+            or set(os.getgrouplist(CORE,core.pw_gid))!={core.pw_gid}
+            or core.pw_gid in {0,op.pw_gid,grp.getgrnam('docker').gr_gid}):
+        raise ValueError('CORE_ACCOUNT_BOUNDARY_CHANGED')
+    # Read through the installed immutable implementation as the unprivileged
+    # operator; the root entry script need not import a writable working tree.
+    policy=json.loads(operator_python('from core.execution.peers import load_policy;import json;print(json.dumps(load_policy()))',
+                                     release=Path(marker['release'])).stdout)
+    if (policy['release']!=marker['release'] or policy['core_uid']!=core.pw_uid
+            or policy['operator_uid']!=op.pw_uid or policy['operator_project']!=str(PROJECT)):
+        raise ValueError('INSTALLED_POLICY_CHANGED')
+    context=json.loads(operator_python('from core.execution.bridge import operator_context;import json;print(json.dumps(operator_context()))').stdout)
+    before={name:read_root_file(SYSTEM_UNITS/name) for name in (CORE_UNIT,BRIDGE_UNIT)}
+    old_policy=read_root_file(POLICY)
+    release=source_release(commit)
+    account_audit=inspect_core_account(core,release)
+    root_directory(BACKUPS,0o700)
+    backup=BACKUPS/('upgrade-'+str(time.time_ns()));backup.mkdir(mode=0o700)
+    for name,data in before.items():root_file(backup/name,data,0o600)
+    root_file(backup/'peers-before.json',old_policy,0o600)
+    root_file(backup/'marker-before.json',json.dumps(marker).encode(),0o600)
+    attempt={'status':'PREPARED','commit':commit,'previous_commit':marker['commit'],
+             'release':str(release),'backup':str(backup),'database_restore':False}
+    def journal(status):
+        attempt['status']=status
+        root_file(backup/'upgrade.json',json.dumps(attempt).encode(),0o600)
+    journal('PREPARED')
+    stopped=False
+    try:
+        idle_check()
+        stopped=True
+        system_unit('stop',CORE_UNIT,BRIDGE_UNIT)
+        snapshot_database(Path(core.pw_dir)/'core.sqlite3',backup/'before-core.sqlite3',0,0)
+        snapshot_database(Path(op.pw_dir)/'.local/state/rio/execution-bridge/core.sqlite3',backup/'before-bridge.sqlite3',0,0)
+        journal('STOPPED_HISTORY_BACKED_UP')
+        root_file(POLICY,json.dumps({**policy,'release':str(release)}).encode())
+        for name,text in units(release,op,core).items():root_file(SYSTEM_UNITS/name,text.encode())
+        system_unit('daemon-reload');system_unit('start',BRIDGE_UNIT,CORE_UNIT)
+        result=json.loads(operator_python(SMOKE,release=release).stdout)
+        if (result['health']['process_uid']!=core.pw_uid
+                or result['health']['isolation_audit']['operator_context']!=context):
+            raise ValueError('UPGRADE_CONTEXT_MISMATCH')
+        updated={**marker,'commit':commit,'release':str(release),'smoke':result,
+                 'account_audit':account_audit,'operator_context_before':context,
+                 'last_upgrade':{**attempt,'status':'APPLIED'}}
+        # Keep the original migration backup: --rollback still exports the
+        # newest isolated DB before returning to the legacy user Core.
+        root_file(ROOT_STATE/'current.json',json.dumps(updated).encode(),0o600)
+        save_operator_report(updated);journal('APPLIED')
+        print(json.dumps({'status':'ISOLATED_CORE_UPGRADED','commit':commit,'history_preserved':True}))
+    except BaseException:
+        if stopped:
+            try:
+                system_unit('stop',CORE_UNIT,BRIDGE_UNIT)
+                root_file(POLICY,old_policy)
+                for name,data in before.items():root_file(SYSTEM_UNITS/name,data)
+                system_unit('daemon-reload');system_unit('start',BRIDGE_UNIT,CORE_UNIT)
+                journal('PREVIOUS_RELEASE_RESTORED_LATEST_HISTORY_PRESERVED')
+                restored={**marker,'last_upgrade':dict(attempt)}
+                root_file(ROOT_STATE/'current.json',json.dumps(restored).encode(),0o600)
+                save_operator_report(restored)
+            except BaseException:
+                journal('RECOVERY_REQUIRED_NO_AUTOMATIC_RETRY')
+                root_file(ROOT_STATE/'current.json',json.dumps({**marker,'status':'UPGRADE_RECOVERY_REQUIRED',
+                          'last_upgrade':dict(attempt)}).encode(),0o600)
+                raise
+        raise
+
+
 def main():
     p=argparse.ArgumentParser(description='Core account migration; no PC or device commands')
-    mode=p.add_mutually_exclusive_group(required=True);mode.add_argument('--install',action='store_true');mode.add_argument('--rollback',action='store_true')
+    mode=p.add_mutually_exclusive_group(required=True);mode.add_argument('--install',action='store_true');mode.add_argument('--rollback',action='store_true');mode.add_argument('--upgrade',action='store_true')
     p.add_argument('--commit')
     a=p.parse_args()
     if os.getuid()!=0:raise SystemExit('관리자 인증이 필요합니다. 비밀번호는 채팅에 보내지 마세요.')
-    if a.install:
-        if not a.commit:raise ValueError('REVIEWED_COMMIT_REQUIRED')
-        install(a.commit)
-    else:
-        idle_check();rollback(json.loads((ROOT_STATE/'current.json').read_text()))
+    if (a.install or a.upgrade) and not a.commit:raise ValueError('REVIEWED_COMMIT_REQUIRED')
+    root_directory(ROOT_STATE,0o700)
+    fd=os.open(ROOT_STATE/'manager.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+    try:
+        meta=os.fstat(fd)
+        if not stat.S_ISREG(meta.st_mode) or meta.st_uid!=0 or meta.st_mode&0o077 or meta.st_nlink!=1:
+            raise ValueError('PRIVATE_MANAGER_LOCK_REQUIRED')
+        try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise ValueError('MIGRATION_ALREADY_RUNNING') from None
+        if a.install:install(a.commit)
+        elif a.upgrade:upgrade(a.commit)
+        else:idle_check();rollback(json.loads(read_root_file(ROOT_STATE/'current.json')))
+    finally:os.close(fd)
 
 
 if __name__=='__main__':main()
