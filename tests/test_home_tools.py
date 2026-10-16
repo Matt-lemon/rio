@@ -117,6 +117,40 @@ class HomeToolsTests(unittest.TestCase):
         self.assertEqual("PREVIOUS_RESULT_UNRESOLVED", self.call(key="new-key-0002")["code"])
         self.assertEqual(1, len(self.transport.writes))
 
+    def test_human_review_preserves_unknown_and_never_replays_original_request(self):
+        self.transport.response = TimeoutError()
+        original = self.call()
+        ledger = self.registry.ledger
+        before = ledger.db.execute('SELECT * FROM light_commands').fetchall()
+        ledger.review_not_applied('test-key-0001', '사용자가 실제로 켜지지 않았다고 확인함',
+                                 gateway_result={'status': 'UNKNOWN'},
+                                 gateway_status={**self.transport.bridge, 'inflight': False})
+        self.assertEqual(before, ledger.db.execute('SELECT * FROM light_commands').fetchall())
+        self.assertEqual(original, self.call())
+        self.assertEqual(1, len(self.transport.writes))
+        self.transport.response = {'status': 'DISPATCHED'}
+        self.assertEqual('DISPATCHED', self.call(key='new-key-0002')['status'])
+        self.assertEqual(2, len(self.transport.writes))
+
+    def test_sdk_state_or_inflight_request_cannot_release_unknown(self):
+        self.transport.response = TimeoutError()
+        self.call()
+        for result, state in (({'status': 'SUCCEEDED'}, False), ({'status': 'UNKNOWN'}, True)):
+            with self.assertRaises(ValueError):
+                self.registry.ledger.review_not_applied('test-key-0001', 'physical observation',
+                    gateway_result=result, gateway_status={**self.transport.bridge, 'inflight': state})
+        self.assertEqual('PREVIOUS_RESULT_UNRESOLVED', self.call(key='new-key-0002')['code'])
+
+    def test_review_does_not_release_other_pending_requests(self):
+        ledger = self.registry.ledger
+        ledger.reserve('old-key-0001', {'on': True})
+        ledger.record('old-key-0001', {'status': 'UNKNOWN'})
+        ledger.db.execute("INSERT INTO light_commands VALUES ('other-key-0002','digest','DISPATCHING','{}')")
+        ledger.db.commit()
+        ledger.review_not_applied('old-key-0001', 'physical observation', gateway_result={'status': 'UNKNOWN'},
+                                 gateway_status={**self.transport.bridge, 'inflight': False})
+        self.assertEqual('PREVIOUS_RESULT_UNRESOLVED', self.call(key='new-key-0003')['code'])
+
     def test_crash_after_reservation_has_same_protection(self):
         self.registry.ledger.reserve("test-key-0001", {"alias": ALIAS, "on": True})
         self.registry.close(); self.registry._ledger = None
@@ -213,7 +247,7 @@ class HomeToolsTests(unittest.TestCase):
 
     def test_redirects_disabled_and_proxy_disabled_in_transport(self):
         self.assertIsNone(NoRedirects().redirect_request(None, None, 302, "", {}, "https://elsewhere.test"))
-        token = self.root / "token"; token.write_text("test-private-token")
+        token = self.root / "token"; token.write_text("test-private-token"); token.chmod(0o600)
         transport = LocalHomeTransport(token)
         with patch("urllib.request.build_opener") as opener:
             opener.return_value.open.side_effect = TimeoutError()
