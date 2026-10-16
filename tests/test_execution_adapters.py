@@ -126,7 +126,7 @@ def test_context_clear_drops_implicit_targets_but_keeps_audit(state):
     result = ToolResult('SUCCEEDED', 'SDK acknowledged', confirmation='SDK_ACK').public()
     with state.transaction() as db:
         now = state.clock()
-        db.execute('INSERT INTO calls VALUES(?,?,?,?,?,?,?,?,?,?)',
+        db.execute('INSERT INTO calls(id,task_id,name,args,revision,effect,state,result,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)',
                    ('old_key_123', task['id'], 'home.light', encoded({'target': '거실', 'action': 'on'}), 'v', 'control', 'SUCCEEDED', encoded(result), now, now))
     engine = Task(state)
     assert engine.router('a'*32).events
@@ -156,7 +156,7 @@ def test_proactive_does_not_search_private_task_labels(state):
     task = state.create_task(session, '개인 집 이름이나 내부 경로가 포함된 작업')
     with state.transaction() as db:
         now = state.clock()
-        db.execute('INSERT INTO calls VALUES(?,?,?,?,?,?,?,?,?,?)',
+        db.execute('INSERT INTO calls(id,task_id,name,args,revision,effect,state,result,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)',
                    ('old_key_123', task['id'], 'core.status', '{}', 'v', 'read', 'OBSERVED', '{}', now, now))
     state.update_task(task['id'], state='COMPLETED')
     search = Mock()

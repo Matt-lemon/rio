@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import os
+import fcntl
 from pathlib import Path
 import sqlite3
 import stat
@@ -38,6 +39,7 @@ class Store:
         finally:
             os.close(fd)
         self.lock = threading.RLock()
+        self.executor_token = None
         self.db = sqlite3.connect(path, timeout=10, check_same_thread=False, isolation_level=None)
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
@@ -59,13 +61,86 @@ class Store:
           CREATE TABLE IF NOT EXISTS suggestions(id TEXT PRIMARY KEY,task_id TEXT NOT NULL,
             text TEXT NOT NULL,evidence TEXT NOT NULL,created REAL NOT NULL,delivered REAL);
           CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+          CREATE TABLE IF NOT EXISTS call_phases(seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            call_id TEXT NOT NULL,phase TEXT NOT NULL,state TEXT,source TEXT NOT NULL,
+            owner_token INTEGER NOT NULL,fence INTEGER NOT NULL,created REAL NOT NULL);
         ''')
+        # Additive migration: retain all old calls, IDs, results and events.
+        with self.transaction() as db:
+            for table, columns in {'tasks': {'owner_token': 'INTEGER NOT NULL DEFAULT 0', 'fence': 'INTEGER NOT NULL DEFAULT 0'},
+                                   'calls': {'owner_token': 'INTEGER NOT NULL DEFAULT 0', 'fence': 'INTEGER NOT NULL DEFAULT 0',
+                                             'phase': "TEXT NOT NULL DEFAULT 'LEGACY_UNCLASSIFIED'"}}.items():
+                existing = {r['name'] for r in db.execute('PRAGMA table_info(' + table + ')')}
+                for name, declaration in columns.items():
+                    if name not in existing:
+                        db.execute('ALTER TABLE ' + table + ' ADD COLUMN ' + name + ' ' + declaration)
 
     @contextmanager
-    def transaction(self):
+    def dispatch_lock(self):
+        """Takeover waits for a live adapter boundary; process death releases it."""
+        fd = os.open(self.root/'dispatch.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)
+
+    def activate_executor(self):
+        if self.executor_token is not None:
+            return self.executor_token
+        with self.dispatch_lock(), self.transaction() as db:
+            row = db.execute("SELECT value FROM meta WHERE key='executor_token'").fetchone()
+            token = int(row['value']) + 1 if row else 1
+            db.execute("INSERT INTO meta VALUES('executor_token',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(token),))
+        self.executor_token = token
+        return token
+
+    def assert_executor(self, db):
+        if self.executor_token is not None:
+            row = db.execute("SELECT value FROM meta WHERE key='executor_token'").fetchone()
+            if row is None or int(row['value']) != self.executor_token:
+                raise ValueError('EXECUTOR_FENCED')
+
+    def executor_valid(self):
+        with self.lock:
+            try:
+                self.assert_executor(self.db)
+                return self.executor_token is not None
+            except ValueError:
+                return False
+
+    def assert_claim(self, db, claim, *, running=True, revision=True):
+        self.assert_executor(db)
+        row = db.execute('SELECT * FROM tasks WHERE id=?', (claim['id'],)).fetchone()
+        if (row is None or row['owner_token'] != self.executor_token or row['owner_token'] != claim['owner_token'] or row['fence'] != claim['fence']
+                or (running and row['state'] != 'RUNNING') or (revision and row['revision'] != claim['revision'])):
+            raise ValueError('TASK_FENCED')
+
+    def claim_task(self, ident):
+        with self.transaction() as db:
+            row = db.execute('SELECT state FROM tasks WHERE id=?', (ident,)).fetchone()
+            if not row or row['state'] != 'QUEUED':
+                return None
+            db.execute("UPDATE tasks SET state='RUNNING',owner_token=?,fence=fence+1,updated=? WHERE id=?",
+                       (self.executor_token, self.clock(), ident))
+            return dict(db.execute('SELECT * FROM tasks WHERE id=?', (ident,)).fetchone())
+
+    def owns(self, claim, *, running=True, revision=True):
+        try:
+            with self.lock:
+                self.assert_claim(self.db, claim, running=running, revision=revision)
+            return True
+        except ValueError:
+            return False
+
+    @contextmanager
+    def transaction(self, claim=None, *, running=True, revision=True):
         with self.lock:
             self.db.execute('BEGIN IMMEDIATE')
             try:
+                self.assert_executor(self.db)
+                if claim is not None:
+                    self.assert_claim(self.db, claim, running=running, revision=revision)
                 yield self.db
                 self.db.execute('COMMIT')
             except BaseException:
@@ -93,25 +168,27 @@ class Store:
         if role not in {'user', 'assistant'}:
             raise ValueError('INVALID_ROLE')
         with self.transaction() as db:
-            row = db.execute('SELECT messages,summary FROM sessions WHERE id=?', (ident,)).fetchone()
-            messages = json.loads(row['messages'])
-            messages.append({'role': role, 'content': safe_text(content, 8000)})
-            summary = row['summary']
-            if len(messages) > 12:
-                # Extractive, source-labeled context; no model can turn this into
-                # a new user command or alter the separate call/task ledgers.
-                older = messages[:-12]
-                summary = (summary + '\n' + '\n'.join(m['role'] + ': ' + m['content'][:120] for m in older))[-800:]
-                messages = messages[-12:]
-            db.execute('UPDATE sessions SET messages=?,summary=?,updated=? WHERE id=?',
-                       (encoded(messages), summary, self.clock(), ident))
+            self.append_turn_db(db, ident, role, content)
 
-    def browser(self, ident, value):
-        with self.transaction() as db:
+    def append_turn_db(self, db, ident, role, content):
+        row = db.execute('SELECT messages,summary FROM sessions WHERE id=?', (ident,)).fetchone()
+        messages = json.loads(row['messages'])
+        messages.append({'role': role, 'content': safe_text(content, 8000)})
+        summary = row['summary']
+        if len(messages) > 12:
+            # Extractive context never alters the separate authority ledgers.
+            older = messages[:-12]
+            summary = (summary + '\n' + '\n'.join(m['role'] + ': ' + m['content'][:120] for m in older))[-800:]
+            messages = messages[-12:]
+        db.execute('UPDATE sessions SET messages=?,summary=?,updated=? WHERE id=?',
+                   (encoded(messages), summary, self.clock(), ident))
+
+    def browser(self, ident, value, *, claim=None):
+        with self.transaction(claim, running=False, revision=False) as db:
             db.execute('UPDATE sessions SET browser=? WHERE id=?', (encoded(value), ident))
 
-    def event(self, session, task, kind, payload):
-        with self.transaction() as db:
+    def event(self, session, task, kind, payload, *, claim=None):
+        with self.transaction(claim) as db:
             db.execute('INSERT INTO events(task_id,session_id,kind,payload,created) VALUES(?,?,?,?,?)',
                        (task, session, kind, encoded(payload), self.clock()))
 
@@ -135,11 +212,11 @@ class Store:
             raise ValueError('TASK_NOT_FOUND')
         return row
 
-    def update_task(self, ident, **values):
+    def update_task(self, ident, *, claim=None, running=True, **values):
         if not set(values) <= {'state', 'steps', 'elapsed', 'revision', 'answer', 'completion', 'direct'}:
             raise ValueError('INVALID_TASK_UPDATE')
         values['updated'] = self.clock()
-        with self.transaction() as db:
+        with self.transaction(claim, running=running) as db:
             db.execute('UPDATE tasks SET ' + ','.join(k + '=?' for k in values) + ' WHERE id=?', (*values.values(), ident))
 
     def calls(self, ident):
@@ -148,7 +225,7 @@ class Store:
 
     def interrupted(self):
         with self.transaction() as db:
-            db.execute("UPDATE calls SET state='UNKNOWN' WHERE state='IN_FLIGHT'")
+            db.execute("UPDATE calls SET state='UNKNOWN' WHERE state IN ('IN_FLIGHT','PREPARED')")
             db.execute("UPDATE tasks SET state='PAUSED',updated=? WHERE state IN ('RUNNING','QUEUED')", (self.clock(),))
 
     def close(self):

@@ -19,6 +19,7 @@ class Task:
     def __init__(self, store, catalog=None, adapters=None, *, planner=models.next_step,
                  responder=models.reply, selector=None, monotonic=time.monotonic):
         self.store = store
+        self.executor_token = store.activate_executor()
         self.catalog = catalog or Catalog()
         self.adapters = adapters or Adapters(store)
         self.runner = ToolRunner(store, self.catalog, self.adapters)
@@ -60,13 +61,13 @@ class Task:
         return self._stop(session, ident, 'CANCELLED')
 
     def _stop(self, session, ident, state):
-        with self.gate:
+        with self.gate, self.store.transaction() as db:
             task = self._target(session, ident)
             if task['state'] in {'COMPLETED', 'FAILED', 'CANCELLED'}:
                 return task
-            self.store.update_task(task['id'], state=state, revision=task['revision'] + 1)
-            self.store.event(session, task['id'], 'TASK_STOPPED',
-                             {'state': state, 'message': '다음 단계는 멈췄어. 이미 전송된 요청의 취소나 원상복구를 뜻하지는 않아.'})
+            db.execute('UPDATE tasks SET state=?,revision=revision+1,updated=? WHERE id=?', (state, self.store.clock(), task['id']))
+            db.execute('INSERT INTO events(task_id,session_id,kind,payload,created) VALUES(?,?,?,?,?)',
+                       (task['id'], session, 'TASK_STOPPED', json.dumps({'state': state, 'message': '다음 단계는 멈췄어. 이미 전송된 요청의 취소나 원상복구를 뜻하지는 않아.'}, ensure_ascii=False), self.store.clock()))
             return self.store.task(task['id'])
 
     def resume(self, session, ident=None):
@@ -75,10 +76,11 @@ class Task:
             if task['state'] not in {'PAUSED', 'WAITING_INPUT', 'UNKNOWN'}:
                 raise ValueError('TASK_NOT_RESUMABLE')
             for call in self.store.calls(task['id']):
-                if call['state'] in {'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'}:
+                if call['state'] in {'PREPARED', 'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'}:
                     result = self.runner.status(call['id'], session)
                     if not result.completed:
-                        self.store.update_task(task['id'], state='UNKNOWN', answer=result.message)
+                        state = 'UNKNOWN' if result.status in {'PREPARED', 'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'} else 'FAILED' if result.status == 'FAILED' else 'WAITING_INPUT'
+                        self.store.update_task(task['id'], state=state, answer=result.message)
                         return self.store.task(task['id'])
                 elif call['state'] not in {'SUCCEEDED', 'OBSERVED', 'RETURNED', 'SCHEDULED'}:
                     self.store.update_task(task['id'], answer='이전 단계는 실행 완료가 아니야. 같은 명령을 재전송하지 않고, 수정한 요청을 기다릴게.')
@@ -93,16 +95,17 @@ class Task:
     def steer(self, session, ident, text):
         if not isinstance(text, str) or not 1 <= len(text) <= 2000 or SENSITIVE.search(text):
             raise ValueError('PUBLIC_REQUEST_REQUIRED')
-        with self.gate:
+        with self.gate, self.store.transaction() as db:
             task = self.store.task(ident, session)
             if task['state'] not in {'RUNNING', 'QUEUED', 'PAUSED', 'WAITING_INPUT'}:
                 raise ValueError('TASK_NOT_STEERABLE')
-            self.store.event(session, ident, 'USER_CORRECTION', {'request': text, 'request_epoch': task['revision'] + 1})
-            self.store.append_turn(session, 'user', text)
-            self.store.update_task(ident, state='QUEUED', revision=task['revision'] + 1,
-                                   completion=safe_text(text, 2000), steps=0, elapsed=0, direct=0)
-            self.wake.set()
-            return self.store.task(ident)
+            db.execute('INSERT INTO events(task_id,session_id,kind,payload,created) VALUES(?,?,?,?,?)',
+                       (ident, session, 'USER_CORRECTION', json.dumps({'request': text, 'request_epoch': task['revision'] + 1}, ensure_ascii=False), self.store.clock()))
+            self.store.append_turn_db(db, session, 'user', text)
+            db.execute("UPDATE tasks SET state='QUEUED',revision=revision+1,completion=?,steps=0,elapsed=0,direct=0,updated=? WHERE id=?",
+                       (safe_text(text, 2000), self.store.clock(), ident))
+        self.wake.set()
+        return self.store.task(ident)
 
     def events(self, session, after=0):
         return self.store.events(session, after)
@@ -126,9 +129,9 @@ class Task:
             browser.checked = time.monotonic() - age
         return browser
 
-    def save_browser(self, session, browser):
+    def save_browser(self, session, browser, claim):
         self.store.browser(session, {'results': browser.results, 'index': browser.index,
-                                    'checked_at': self.store.clock() - (time.monotonic() - browser.checked)})
+                                    'checked_at': self.store.clock() - (time.monotonic() - browser.checked)}, claim=claim)
 
     def router(self, session):
         router = ContextTools(catalog_provider=lambda: {t['name']: t for t in self.catalog.list(planner=True)})
@@ -149,13 +152,14 @@ class Task:
 
     def finish(self, task, state, message):
         with self.gate:
-            current = self.store.task(task['id'])
-            if current['revision'] != task['revision'] or current['state'] != 'RUNNING':
+            if not self.store.owns(task):
                 return
             message = safe_text(message, 8000)
-            self.store.update_task(task['id'], state=state, answer=message)
-            self.store.append_turn(task['session_id'], 'assistant', message)
-            self.store.event(task['session_id'], task['id'], 'TASK_FINISHED', {'state': state, 'message': message})
+            with self.store.transaction(task) as db:
+                db.execute('UPDATE tasks SET state=?,answer=?,updated=? WHERE id=?', (state, message, self.store.clock(), task['id']))
+                self.store.append_turn_db(db, task['session_id'], 'assistant', message)
+                db.execute('INSERT INTO events(task_id,session_id,kind,payload,created) VALUES(?,?,?,?,?)',
+                           (task['id'], task['session_id'], 'TASK_FINISHED', json.dumps({'state': state, 'message': message}, ensure_ascii=False), self.store.clock()))
 
     @staticmethod
     def grounded_message(request, results, message):
@@ -174,11 +178,9 @@ class Task:
 
     def run(self, ident):
         with self.gate:
-            task = self.store.task(ident)
-            if task['state'] != 'QUEUED':
+            task = self.store.claim_task(ident)
+            if task is None:
                 return
-            self.store.update_task(ident, state='RUNNING')
-            task = self.store.task(ident)
         began = self.monotonic()
         session = task['session_id']
         request = self.effective_request(task)
@@ -187,13 +189,13 @@ class Task:
         try:
             while not self.stopping.is_set():
                 current = self.store.task(ident)
-                if current['state'] != 'RUNNING' or current['revision'] != task['revision']:
+                if not self.store.owns(task):
                     return
                 if current['steps'] >= 8 or current['elapsed'] + self.monotonic() - began >= 300:
                     self.finish(task, 'PAUSED', '여기까지 진행 내용을 저장했어. 한도에 도달했으니 /resume으로 이어갈 수 있어.')
                     return
                 calls = self.store.calls(ident)
-                unresolved = [c for c in calls if c['state'] in {'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'}]
+                unresolved = [c for c in calls if c['state'] in {'PREPARED', 'IN_FLIGHT', 'UNKNOWN', 'DISPATCHED'}]
                 if unresolved:
                     self.finish(task, 'UNKNOWN', '이전 요청 결과가 미확정이라 다음 단계를 멈췄어. /resume은 결과 조회만 먼저 하고 재전송하지 않아.')
                     return
@@ -211,7 +213,6 @@ class Task:
                 else:
                     payload = {'original_request': task['request'], 'current_user': request,
                                'completion_condition': task['completion'],
-                               'summary_data_only': self.store.session(session)['summary'],
                                'tools': self.catalog.list(planner=True),
                                'results': [{'name': c['name'], 'arguments': c['args'], 'result': c['result']} for c in calls],
                                'browser_results': [{'index': r['index'], 'title': r['title']} for r in browser.results]}
@@ -234,9 +235,9 @@ class Task:
                                         'proposed_name': safe_text(decision.get('name', ''), 100),
                                         'instruction': 'Use the recorded result. Choose done if the goal is fulfilled, a different necessary step, or clarify. Never repeat the call.'}
                         if feedback is not None:
-                            self.store.event(session, ident, 'PLAN_REJECTED', feedback)
+                            self.store.event(session, ident, 'PLAN_REJECTED', feedback, claim=task)
                             current = self.store.task(ident)
-                            if current['revision'] != task['revision'] or current['state'] != 'RUNNING':
+                            if not self.store.owns(task):
                                 return
                             if current['elapsed'] + self.monotonic() - began >= 300:
                                 self.finish(task, 'PAUSED', '계획 확인 중 한도에 도달해 저장했어. /resume으로 이어갈 수 있어.')
@@ -245,7 +246,7 @@ class Task:
                             # new request ID or replay occurs during this repair.
                             decision = self.planner({**payload, 'validation_feedback': feedback})
                 current = self.store.task(ident)
-                if current['revision'] != task['revision'] or current['state'] != 'RUNNING':
+                if not self.store.owns(task):
                     return
                 if not isinstance(decision, dict):
                     raise ValueError('INVALID_PLAN')
@@ -300,37 +301,49 @@ class Task:
                 if decision.get('explicit') and trusted != decision:
                     raise ValueError('UNTRUSTED_EXPLICIT_FLAG')
                 if not this_revision and decision.get('explicit'):
-                    with self.store.transaction() as db:
+                    with self.store.transaction(task) as db:
                         db.execute('UPDATE tasks SET direct=1 WHERE id=?', (ident,))
                     task['direct'] = 1
                 key = prefix + str(len(calls))
-                self.store.event(session, ident, 'TOOL_START', {'name': name, 'request_id': key})
+                self.store.event(session, ident, 'TOOL_START', {'name': name, 'request_id': key}, claim=task)
                 result = self.runner.call(task, name, args, key, tool['revision'], browser)
-                self.save_browser(session, browser)
+                self.save_browser(session, browser, task)
                 current = self.store.task(ident)
-                if current['revision'] != task['revision'] or current['state'] != 'RUNNING':
+                if not self.store.owns(task):
                     return
-                self.store.update_task(ident, steps=current['steps'] + 1)
-                self.store.event(session, ident, 'TOOL_RESULT', {'name': name, 'result': result.public()})
+                self.store.update_task(ident, claim=task, steps=current['steps'] + 1)
+                self.store.event(session, ident, 'TOOL_RESULT', {'name': name, 'result': result.public()}, claim=task)
                 if not result.completed:
                     state = 'UNKNOWN' if result.status in {'UNKNOWN', 'DISPATCHED'} else 'WAITING_INPUT' if result.status in {'NEED_INPUT', 'PREVIEW'} else 'FAILED'
                     self.finish(task, state, result.message)
                     return
         except Exception as error:
+            if not self.store.owns(task):
+                return
             code = str(error) if isinstance(error, ValueError) and re.fullmatch('[A-Z_]{1,80}', str(error)) else 'EXECUTION_OR_MODEL_UNAVAILABLE'
-            self.store.event(session, ident, 'EXECUTION_BLOCKED', {'error_type': type(error).__name__, 'code': code})
+            self.store.event(session, ident, 'EXECUTION_BLOCKED', {'error_type': type(error).__name__, 'code': code}, claim=task)
             self.finish(task, 'WAITING_INPUT', '다음 단계나 응답을 확정하지 못해 진행 내용을 저장했어. 도구를 자동으로 재전송하지 않을게.')
         finally:
             current = self.store.task(ident)
             # Never charge an old planner's elapsed time to a newer correction.
-            if current['revision'] == task['revision']:
-                self.store.update_task(ident, elapsed=current['elapsed'] + self.monotonic() - began)
+            if self.store.owns(task, running=False):
+                try:
+                    self.store.update_task(ident, claim=task, running=False, elapsed=current['elapsed'] + self.monotonic() - began)
+                except ValueError as error:
+                    if str(error) not in {'EXECUTOR_FENCED', 'TASK_FENCED'}:
+                        raise
 
     def loop(self):
         while not self.stopping.is_set():
             row = self.store.row("SELECT id FROM tasks WHERE state='QUEUED' ORDER BY created LIMIT 1")
             if row:
-                self.run(row['id'])
+                try:
+                    self.run(row['id'])
+                except ValueError as error:
+                    if str(error) != 'EXECUTOR_FENCED':
+                        raise
+                    self.stopping.set()
+                    return
             else:
                 self.wake.wait(0.5)
                 self.wake.clear()

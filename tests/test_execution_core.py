@@ -158,7 +158,7 @@ def test_correction_of_explicit_task_does_not_keep_single_step_completion(store,
 def test_duplicate_call_returns_original_without_adapter_reentry(store, catalog):
     task = engine(store, catalog)
     item = task.submit(SESSION, '거실 불 켜줘')
-    store.update_task(item['id'], state='RUNNING')
+    store.claim_task(item['id'])
     item = store.task(item['id'])
     spec = catalog.describe('home.light')
     args = {'target': '거실', 'action': 'on'}
@@ -174,7 +174,7 @@ def test_crash_after_effect_does_not_replay_and_recovery_only_reads(store, catal
     adapters = FakeAdapters()
     task = engine(store, catalog, adapters)
     item = task.submit(SESSION, '/home 거실 on')
-    store.update_task(item['id'], state='RUNNING')
+    store.claim_task(item['id'])
     item = store.task(item['id'])
     def crash(name, args, key):
         adapters.sent.append((name, args, key))
@@ -198,7 +198,7 @@ def test_crash_after_effect_does_not_replay_and_recovery_only_reads(store, catal
 def test_contract_revocation_after_plan_rejects_before_dispatch(store, catalog):
     task = engine(store, catalog)
     item = task.submit(SESSION, '거실 불 켜줘')
-    store.update_task(item['id'], state='RUNNING')
+    store.claim_task(item['id'])
     item = store.task(item['id'])
     before = catalog.describe('home.light')
     catalog.provider = lambda: {}

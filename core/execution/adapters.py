@@ -61,7 +61,13 @@ class Adapters:
     def call_checked(self, descriptor, args, key, browser):
         return self.call(descriptor['name'], args, key, browser, expected_hash=descriptor.get('package_hash'))
 
-    def call(self, name, args, key, browser, *, expected_hash=None):
+    def call_tracked(self, descriptor, args, key, browser, progress):
+        from .catalog import Catalog
+        if Catalog.effect(descriptor, args) == 'read' or descriptor['name'].startswith('browser.'):
+            progress.attempted('READ_OR_NAVIGATION_BOUNDARY')
+        return self.call(descriptor['name'], args, key, browser, expected_hash=descriptor.get('package_hash'), progress=progress)
+
+    def call(self, name, args, key, browser, *, expected_hash=None, progress=None):
         if name.startswith('registered.'):
             from .catalog import approved_generated
             if registry_request('capabilities').get('expected_hash') is not True:
@@ -72,7 +78,11 @@ class Adapters:
                 return ToolResult('REJECTED', '검증·승인된 읽기 도구가 아니라 실행하지 않았어.', request_id=key)
             if expected_hash is not None and item['hash'] != expected_hash:
                 return ToolResult('REJECTED', '등록 도구 버전이 실행 직전에 바뀌어 멈췄어.', request_id=key, code='TOOL_REVISION_CHANGED')
+            if progress:
+                progress.attempted('PINNED_REGISTRY_CALL')
             result = registry_request('call', name=original, args=args, request_id=key, expected_hash=item['hash'])
+            if progress and result.get('request_id') == key and result.get('status') in {'QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED'}:
+                progress.accepted('REGISTRY_REQUEST_RECEIPT')
             until = time.monotonic() + 20
             while result.get('status') in {'QUEUED', 'RUNNING'} and time.monotonic() < until:
                 time.sleep(0.2)
@@ -93,7 +103,7 @@ class Adapters:
                            'back_results': lambda: 'back', 'status': lambda: 'status'}[op]()
                 raw = browser.run_result(command)
             if op in {'search', 'open_topic'}:
-                with self.store.transaction() as db:
+                with self.store.transaction(progress.claim if progress else None, running=False, revision=False) as db:
                     db.execute("INSERT INTO meta VALUES('browser_owner',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (session,))
             evidence = {k: raw[k] for k in ('status', 'title', 'url', 'results', 'query', 'index') if k in raw}
             # A title and URL are navigation evidence, never page-content evidence.
@@ -110,19 +120,25 @@ class Adapters:
                               {'results': rows, 'content_read': False}, key, 'SEARCH_SNIPPETS' if rows else 'NONE')
         if name == 'spotify.control':
             from core.spotify import SpotifyController
-            raw = SpotifyController().call(args['action'])
+            controller = SpotifyController()
+            if progress and args['action'] != 'status':
+                self.track_method(controller.transport, 'command', progress, 'MPRIS_METHOD', lambda result: True)
+            raw = controller.call(args['action'])
             state = raw.get('playback')
             message = {'Playing': 'Spotify가 재생 중이라고 보고했어.', 'Paused': 'Spotify가 일시정지라고 보고했어.',
                        'Stopped': 'Spotify가 정지 상태라고 보고했어.'}.get(state, '음악 요청 결과를 확인하지 못했어. 자동으로 다시 보내지 않을게.')
             return ToolResult(raw['status'], message, raw, key, 'OBSERVED' if state else 'NONE', raw.get('code'))
         if name.startswith('spotify.timer.'):
-            return self.timer(name, args, key)
+            return self.timer(name, args, key, progress)
         if name.startswith('home.'):
-            return self.home(name, args, key)
+            return self.home(name, args, key, progress)
         if name in {'pc.status', 'pc.wake', 'pc.shutdown'}:
             from core.home.smartthings_pc import controller_from_environment, result_message
             controller = controller_from_environment()
             action = {'pc.status': 'status', 'pc.wake': 'on', 'pc.shutdown': 'off'}[name]
+            if progress and action != 'status':
+                self.track_method(controller.transport, 'on' if action == 'on' else 'off', progress, 'PC_POWER_HTTP',
+                                  lambda raw: isinstance(raw, dict) and len(raw.get('results', [])) == 1 and raw['results'][0].get('status') == 'ACCEPTED')
             raw = controller.observe() if action == 'status' else controller.wake(key) if action == 'on' else controller.shutdown(key)
             code = raw.get('result')
             state = 'OBSERVED' if action == 'status' or code in {'ALREADY_REACHABLE', 'OFF_NOT_REACHABLE'} else 'DISPATCHED' if code == 'ACCEPTED' else 'UNKNOWN' if code in {'UNKNOWN', 'PENDING_DO_NOT_RETRY'} else 'REJECTED'
@@ -161,11 +177,58 @@ class Adapters:
                 from rio_dubbing_tools import handle_dubbing_command as callback
             # Opaque legacy replies are delivered as such, never parsed into an
             # acknowledgement or used to authorize a follow-up physical change.
-            return ToolResult('RETURNED', callback(args['command']) or '기존 명령을 확인하지 못했어.',
-                              {'structured_outcome': False}, key)
+            if family == 'dubbing' and progress:
+                from rio_dubbing_client import DubbingClient
+                client = DubbingClient()
+                original = client._request
+                def request(method, path, *a, **kw):
+                    if method != 'GET':
+                        progress.attempted('DUBBING_HTTP_BOUNDARY')
+                    raw = original(method, path, *a, **kw)
+                    # HTTP success plus the server's typed job receipt confirms
+                    # acceptance only, not a rendered output or Core-ID lookup.
+                    if (method != 'GET' and isinstance(raw, dict)
+                            and isinstance(raw.get('id'), str) and re.fullmatch(r'[A-Za-z0-9_-]{1,100}', raw['id'])
+                            and raw.get('status') in {'queued', 'running', 'blocked', 'failed', 'completed', 'preview_ready', 'analysis_ready'}):
+                        progress.accepted('DUBBING_JOB_RECEIPT')
+                    return raw
+                client._request = request
+                text = callback(args['command'], client=client)
+            else:
+                if progress:
+                    progress.attempted('OPAQUE_LEGACY_BOUNDARY')
+                text = callback(args['command'])
+            return ToolResult('UNKNOWN', (text or '기존 명령을 확인하지 못했어.') + '\n구조화된 접수·결과를 확인할 수 없어 미확정으로 보존했어. 자동 재전송하지 않을게.',
+                              {'structured_outcome': False, 'lookup_supported': False}, key)
         raise ValueError('UNKNOWN_TOOL')
 
-    def home(self, name, args, key):
+    @staticmethod
+    def track_method(transport, method, progress, source, accepted):
+        original = getattr(transport, method)
+        def tracked(*args, **kwargs):
+            progress.attempted(source)
+            raw = original(*args, **kwargs)
+            if accepted(raw):
+                progress.accepted(source + '_RECEIPT')
+            return raw
+        setattr(transport, method, tracked)
+
+    @staticmethod
+    def track_home(transport, progress, key):
+        if progress is None:
+            return
+        original = transport.request
+        def tracked(path, data=None):
+            mutation = path == '/v1/commands' and data is not None
+            if mutation:
+                progress.attempted('HOME_COMMAND_HTTP')
+            raw = original(path, data) if data is not None else original(path)
+            if mutation and isinstance(raw, dict) and raw.get('id') == key and raw.get('status') in {'DISPATCHED', 'SUCCEEDED', 'REJECTED'}:
+                progress.accepted('HOME_GATEWAY_RECEIPT')
+            return raw
+        transport.request = tracked
+
+    def home(self, name, args, key, progress=None):
         from core.home.main_adapter import registry_from_environment
         from core.home.tools import user_message, HomeToolRegistry
         registry = None
@@ -173,9 +236,11 @@ class Adapters:
             if name.startswith('home.device.'):
                 from core.home.device_controls import registry_from_environment as devices
                 registry = devices()
+                self.track_home(registry.transport, progress, key)
                 raw = registry.wait_result(registry.execute(name.removeprefix('home.device.'), args['action'], key))
             else:
                 registry = registry_from_environment()
+                self.track_home(registry.transport, progress, key)
                 if name == 'home.status':
                     raw = registry.call('home_get_status', {})
                     ready = raw.get('available') is True and raw.get('permission') == 'GRANTED' and raw.get('bridge_state') == 'READY'
@@ -229,7 +294,7 @@ class Adapters:
         return ToolResult('DISPATCHED' if status in {'QUEUED', 'RUNNING'} else 'UNKNOWN',
                           '기존 도구 결과를 확인 중이야. 같은 요청을 재전송하지 않아.', request_id=key)
 
-    def timer(self, name, args, key):
+    def timer(self, name, args, key, progress=None):
         from core.spotify_timer import TimerStore, format_deadline
         from core.spotify import SpotifyController
         timer = TimerStore()
@@ -242,13 +307,22 @@ class Adapters:
                     message += ' 다만 예약 실행 서비스는 현재 연결되지 않았어.'
             return ToolResult('OBSERVED', message, raw, key, 'OBSERVED')
         if name.endswith('cancel'):
+            if progress:
+                progress.attempted('LOCAL_TIMER_CANCEL')
             raw = timer.cancel()
             return ToolResult('REJECTED' if raw['state'] == 'EXECUTING' else 'SUCCEEDED', '음악 정지 예약 상태: ' + raw['state'], raw, key)
         outcome = {}
         def arm():
+            if progress:
+                progress.attempted('LOCAL_TIMER_SCHEDULE')
             outcome.update(timer.schedule(args['due'], minimum_delay=10 if args['play'] else 0))
+            if progress and outcome.get('status') == 'SCHEDULED':
+                progress.accepted('LOCAL_TIMER_STORED')
             return outcome
-        playback = SpotifyController().call('play', before_write=arm) if args['play'] else None
+        controller = SpotifyController()
+        if progress and args['play']:
+            self.track_method(controller.transport, 'command', progress, 'MPRIS_METHOD', lambda result: True)
+        playback = controller.call('play', before_write=arm) if args['play'] else None
         if playback is None:
             arm()
         if outcome.get('status') != 'SCHEDULED':

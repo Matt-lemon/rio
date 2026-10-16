@@ -39,10 +39,10 @@ class Suggestions:
 
     def tick(self):
         now = self.store.clock()
-        marker = self.store.row("SELECT value FROM meta WHERE key='suggestion_tick'")
-        if marker and now - float(marker['value']) < 1800:
-            return
         with self.store.transaction() as db:
+            marker = db.execute("SELECT value FROM meta WHERE key='suggestion_tick'").fetchone()
+            if marker and now - float(marker['value']) < 1800:
+                return
             db.execute("INSERT INTO meta VALUES('suggestion_tick',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(now),))
         self.import_legacy_events()
         tasks = self.store.rows("SELECT * FROM tasks WHERE state IN ('WAITING_INPUT','FAILED','UNKNOWN','PAUSED','COMPLETED') ORDER BY updated DESC LIMIT 100")
@@ -84,18 +84,20 @@ class Suggestions:
                     db.execute('INSERT OR IGNORE INTO interests(id,task_id,topic,source,signature,created) VALUES(?,?,?,?,?,?)',
                                (key, task['id'], query, 'issued_public_query', fingerprint(call['result']), now))
         day = datetime.fromtimestamp(now, ZoneInfo('Asia/Seoul')).date().isoformat()
-        quota = self.store.row('SELECT value FROM meta WHERE key=?', ('searches:' + day,))
-        count = int(quota['value']) if quota else 0
         for item in self.store.rows('SELECT * FROM interests WHERE excluded=0 AND checked=0 ORDER BY created LIMIT 10'):
             task = self.store.task(item['task_id'])
             if not item['kept'] and task['state'] in {'COMPLETED', 'CANCELLED'} and now - task['updated'] > 7 * 86400:
                 continue
-            if count >= 3:
-                break
             # Reserve quota before network I/O; interruption cannot refund it.
-            count += 1
             with self.store.transaction() as db:
-                db.execute('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ('searches:' + day, str(count)))
+                current = db.execute('SELECT checked,excluded FROM interests WHERE id=?', (item['id'],)).fetchone()
+                if not current or current['checked'] or current['excluded']:
+                    continue
+                quota = db.execute('SELECT value FROM meta WHERE key=?', ('searches:' + day,)).fetchone()
+                used = int(quota['value']) if quota else 0
+                if used >= 3:
+                    break
+                db.execute('INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', ('searches:' + day, str(used + 1)))
                 db.execute('UPDATE interests SET checked=? WHERE id=?', (now, item['id']))
             try:
                 rows = self.search(item['topic'] + ' 공식 문서')

@@ -42,6 +42,7 @@ class Application:
             'task.pause': {'session', 'id'}, 'task.resume': {'session', 'id'},
             'task.cancel': {'session', 'id'}, 'task.steer': {'session', 'id', 'request'},
             'task.events': {'session', 'after'}, 'tool.status': {'session', 'request_id'},
+            'tool.history': {'session', 'request_id'},
             'session.presence': {'session', 'client', 'busy', 'voice_ready', 'user_input'},
             'session.detach': {'session', 'client'},
             'suggestions.list': {'session'}, 'suggestions.claim': {'session', 'client', 'mode'},
@@ -52,7 +53,8 @@ class Application:
         if op not in fields or set(data) - {'op'} - fields[op]:
             raise ValueError('PUBLIC_OPERATION_FORBIDDEN')
         if op == 'health':
-            return {'ready': True, 'version': 1, 'automatic_build': False, 'direct_docker': False,
+            return {'ready': self.store.executor_valid(), 'version': 1, 'automatic_build': False, 'direct_docker': False,
+                    'executor_token': self.task.executor_token,
                     'source_revision': self.source_revision}
         if op == 'catalog.list':
             search = data.get('search', '')
@@ -94,6 +96,8 @@ class Application:
             return self.task.events(session, after)
         if op == 'tool.status':
             return self.task.runner.status(data['request_id'], session).public()
+        if op == 'tool.history':
+            return self.task.runner.history(data['request_id'], session)
         if op.startswith('session.'):
             client = data.get('client')
             if not isinstance(client, str) or not re.fullmatch(r'[a-f0-9]{32}', client):
@@ -146,8 +150,8 @@ def serve(root, path, *, application=None, proactive=True):
     lock_fd = os.open(root/'service.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     store = application.store if application else Store(root)
-    store.interrupted()
     app = application or Application(store)
+    store.interrupted()
     if path.exists() or path.is_symlink():
         info = path.lstat()
         if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
