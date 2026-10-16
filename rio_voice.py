@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import math
+import os
+from pathlib import Path
 import queue
 import re
+import subprocess
+import sys
 import threading
 import time
 from array import array
 
 import requests
-import sounddevice as sd
+try:
+    import sounddevice as sd
+except (ImportError, OSError):
+    # A text-only NAS need not have PortAudio. Its existing PipeWire client can
+    # play the same processed PCM without installing system packages.
+    sd = None
 
 
 TTS_URL = "http://127.0.0.1:8091/v1/audio/speech"
@@ -464,8 +473,14 @@ class RioVoice:
                         timeout=120,
                     )
                     response.raise_for_status()
+                    pcm = response.content
+                    content_type = response.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+                    if (not pcm or len(pcm) & 1 or content_type not in {
+                            '', 'application/octet-stream', 'audio/pcm', 'audio/x-pcm', 'audio/raw'}
+                            or pcm[:4] in {b'RIFF', b'RF64', b'OggS', b'fLaC'} or pcm.startswith(b'ID3')):
+                        raise ValueError('TTS response must be raw mono PCM16, without a file header')
                     print(f"\n[TTS] {len(spoken)} chars / {time.perf_counter() - start:.3f}s")
-                    self._audio_queue.put(response.content)
+                    self._audio_queue.put(pcm)
                 except Exception as exc:
                     self.audio_failed = True
                     self.audio_succeeded = False
@@ -487,6 +502,11 @@ class RioVoice:
             release_ms=RIO_DEESSER_RELEASE_MS,
         )
         try:
+            if sys.platform.startswith('linux') and (sd is None or os.getenv('RIO_AUDIO_BACKEND') == 'pipewire'):
+                self._pipewire_audio_worker(rio_eq, rio_deesser)
+                return
+            if sd is None:
+                raise RuntimeError('Audio output requires sounddevice or the Linux PipeWire client')
             with sd.RawOutputStream(
                 samplerate=SAMPLE_RATE,
                 channels=1,
@@ -524,3 +544,40 @@ class RioVoice:
                 self._audio_queue.task_done()
                 if pcm is None:
                     return
+
+    def _pipewire_audio_worker(self, rio_eq: RioEQ, rio_deesser: RioDeEsser) -> None:
+        player = Path('/usr/bin/pw-play')
+        if not player.is_file():
+            raise RuntimeError('PipeWire playback client is unavailable')
+        volume = float(os.getenv('RIO_AUDIO_VOLUME', '0.12'))
+        if not math.isfinite(volume) or not 0 <= volume <= 1:
+            raise ValueError('RIO_AUDIO_VOLUME must be between 0 and 1')
+        args = [str(player), '--raw', '--rate', str(SAMPLE_RATE), '--channels', '1',
+                '--format', 's16', '--volume', str(volume)]
+        target = os.getenv('RIO_AUDIO_TARGET')
+        if target:
+            args.extend(['--target', target])
+        args.append('-')
+        while True:
+            pcm = self._audio_queue.get()
+            try:
+                if pcm is None:
+                    return
+                if len(pcm) & 1:
+                    raise ValueError('Incomplete PCM16 sample')
+                if not pcm:
+                    self.audio_succeeded = False
+                    continue
+                if RIO_EQ_ENABLED:
+                    pcm = rio_eq.process_pcm16(pcm)
+                if RIO_DEESSER_ENABLED:
+                    pcm = rio_deesser.process_pcm16(pcm)
+                silence = b'\0\0' * int(SAMPLE_RATE * PREBUFFER_MS / 1000)
+                # EOF plus process completion drains this stream. wait() cannot
+                # advertise readiness while audio remains buffered in a pipe.
+                subprocess.run(args, input=silence + pcm, check=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               timeout=len(pcm) / (2 * SAMPLE_RATE) + 20)
+                self.audio_succeeded = not self.audio_failed
+            finally:
+                self._audio_queue.task_done()

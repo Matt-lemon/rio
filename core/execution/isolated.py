@@ -54,6 +54,27 @@ class RemoteSuggestions(Suggestions):
         for row in self.peer.request('legacy.events'):self.ingest(row['kind'],row['text'],row['id'])
 
 
+def wait_for_bridge(path, owner, revision, *, timeout=20, clock=time.monotonic,
+                    sleep=time.sleep, client=PeerClient):
+    """Only retry startup health reads; never retry a tool or model operation."""
+    deadline=clock()+timeout
+    while True:
+        remaining=deadline-clock()
+        if remaining<=0:raise ValueError('BRIDGE_START_TIMEOUT')
+        peer=client(path,owner,timeout=min(2,remaining))
+        try:
+            health=peer.request('health')
+        except (FileNotFoundError,ConnectionRefusedError,TimeoutError):
+            health=None
+        if health is not None:
+            if not isinstance(health,dict) or health.get('source_revision')!=revision:
+                raise ValueError('BRIDGE_SOURCE_CHANGED')
+            if health.get('ready') is True:return health
+        remaining=deadline-clock()
+        if remaining<=0:raise ValueError('BRIDGE_START_TIMEOUT')
+        sleep(min(.2,remaining))
+
+
 def main():
     policy=load_policy()
     if os.getuid()!=policy['core_uid']:raise ValueError('CORE_ACCOUNT_REQUIRED')
@@ -62,8 +83,7 @@ def main():
     inspected=audit()
     if inspected['docker_connect']=='ALLOWED':raise ValueError('CORE_DOCKER_ACCESS_FORBIDDEN')
     peer=PeerClient(policy['bridge_socket'],policy['operator_uid'])
-    bridge_health=peer.request('health')
-    if not bridge_health.get('ready') or bridge_health.get('source_revision')!=source_revision():raise ValueError('BRIDGE_SOURCE_CHANGED')
+    bridge_health=wait_for_bridge(policy['bridge_socket'],policy['operator_uid'],source_revision())
     inspected['bridge_uid']=bridge_health['process_uid'];inspected['operator_context']=bridge_health['operator_context']
     store=Store(Path.home())
     task=Task(store,catalog=RemoteCatalog(peer),adapters=RemoteAdapters(peer,store),

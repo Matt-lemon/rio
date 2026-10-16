@@ -11,14 +11,18 @@ import sys
 
 
 def main() -> int:
-    if len(sys.argv) != 1:
-        print("사용법: rio-main (접속 후 요청 입력, /exit로 종료)", file=sys.stderr)
+    if sys.argv[1:] not in ([], ['--voice'], ['--text-only']):
+        print("사용법: rio-main [--voice | --text-only] (접속 후 요청 입력, /exit로 종료)", file=sys.stderr)
         return 2
     project = Path('/home/example/rio-nas-pc-integration-20261012')
     sys.path.insert(0, str(project))
     from core.execution.client import enabled
     if enabled():
-        os.execv(sys.executable, [sys.executable, str(project/'main.py'), '--core', '--text-only'])
+        os.execv(sys.executable, [sys.executable, str(project/'main.py'), '--core',
+                                '--voice' if sys.argv[1:] == ['--voice'] else '--text-only'])
+    if sys.argv[1:] == ['--voice']:
+        print("음성 접속은 실행 코어 연결이 필요해요. 기존 실행기로 자동 전환하지 않아요.", file=sys.stderr)
+        return 1
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
     path = runtime / "rio-main.sock"
     try:

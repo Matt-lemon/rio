@@ -18,6 +18,46 @@ SESSION='a'*32
 KEY='bridge_request_123'
 
 
+def test_bridge_startup_waits_for_socket_without_sending_actions():
+    from core.execution.isolated import wait_for_bridge
+    now=[0.0];seen=[]
+    failures=[FileNotFoundError(),ConnectionRefusedError(),TimeoutError(),
+              {'ready':False,'source_revision':'reviewed'},
+              {'ready':True,'source_revision':'reviewed','process_uid':1000}]
+    class Client:
+        def __init__(self,path,owner,timeout):
+            assert path=='/run/test.sock' and owner==1000 and timeout<=2
+        def request(self,op):
+            seen.append(op);value=failures.pop(0)
+            if isinstance(value,Exception):raise value
+            return value
+    def sleep(seconds):now[0]+=seconds
+    value=wait_for_bridge('/run/test.sock',1000,'reviewed',clock=lambda:now[0],sleep=sleep,client=Client)
+    assert value['ready'] and seen==['health']*5 and now[0]<20
+
+
+@pytest.mark.parametrize('failure',[PermissionError(),ValueError('PEER_OWNER_CHANGED')])
+def test_bridge_startup_does_not_retry_identity_or_access_failure(failure):
+    from core.execution.isolated import wait_for_bridge
+    client=Mock();client.return_value.request.side_effect=failure;sleep=Mock()
+    with pytest.raises(type(failure)):
+        wait_for_bridge('/run/test.sock',1000,'reviewed',client=client,sleep=sleep)
+    sleep.assert_not_called();client.return_value.request.assert_called_once_with('health')
+
+
+def test_bridge_startup_timeout_and_wrong_revision_fail_closed():
+    from core.execution.isolated import wait_for_bridge
+    now=[0.0];client=Mock();client.return_value.request.side_effect=FileNotFoundError()
+    def sleep(seconds):now[0]+=seconds
+    with pytest.raises(ValueError,match='BRIDGE_START_TIMEOUT'):
+        wait_for_bridge('/run/test.sock',1000,'reviewed',timeout=1,clock=lambda:now[0],sleep=sleep,client=client)
+    assert now[0]==1 and all(c.args==('health',) for c in client.return_value.request.call_args_list)
+    client.return_value.request.side_effect=None
+    client.return_value.request.return_value={'ready':True,'source_revision':'different'}
+    with pytest.raises(ValueError,match='BRIDGE_SOURCE_CHANGED'):
+        wait_for_bridge('/run/test.sock',1000,'reviewed',client=client)
+
+
 @pytest.fixture
 def setup(tmp_path):
     store=Store(tmp_path/'private')
