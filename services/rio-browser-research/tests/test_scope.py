@@ -73,6 +73,43 @@ def test_direct_url_rejects_private_redirect_and_preserves_no_accepted_page():
     assert b.opened_url is None and b.failed_navigation_url=='http://127.0.0.1/private'
 
 
+def test_dedicated_managed_browser_can_open_explicit_public_url_from_blank_tab():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None,'managed')
+    b.status=AsyncMock(side_effect=ResearchError('SEARCH_TAB_REQUIRED_INTERNAL_OR_BLANK'))
+    b.code=AsyncMock(side_effect=[{'blank':True},
+                                  {'url':'https://chatgpt.com/','title':'ChatGPT'}])
+    answer=asyncio.run(b.handle({'op':'open_url','url':'https://chatgpt.com/'}))
+    assert answer['ok'] and answer['status']=='URL_PAGE_OPENED'
+    assert answer['url']=='https://chatgpt.com/' and b.opened_url=='https://chatgpt.com/'
+    assert 'page.url()==="about:blank"' in b.code.call_args_list[0].args[0]
+    assert 'page.url()!=="about:blank"' in b.code.call_args_list[1].args[0]
+
+
+@pytest.mark.parametrize('mode',['extension','cdp'])
+def test_other_transports_cannot_navigate_from_blank_tab(mode):
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None,mode)
+    b.status=AsyncMock(side_effect=ResearchError('SEARCH_TAB_REQUIRED_INTERNAL_OR_BLANK'))
+    b.code=AsyncMock()
+    with pytest.raises(ResearchError,match='SEARCH_TAB_REQUIRED_INTERNAL_OR_BLANK'):
+        asyncio.run(b.handle({'op':'open_url','url':'https://chatgpt.com/'}))
+    b.code.assert_not_called()
+
+
+def test_managed_browser_rejects_other_internal_tab_without_navigating():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None,'managed')
+    b.status=AsyncMock(side_effect=ResearchError('SEARCH_TAB_REQUIRED_INTERNAL_OR_BLANK'))
+    b.code=AsyncMock(return_value={'blank':False})
+    with pytest.raises(ResearchError,match='SEARCH_TAB_REQUIRED_INTERNAL_OR_BLANK'):
+        asyncio.run(b.handle({'op':'open_url','url':'https://chatgpt.com/'}))
+    assert b.code.call_count==1
+
+
 def test_search_can_recover_from_rejected_direct_url_without_prior_search():
     import asyncio
     from unittest.mock import AsyncMock

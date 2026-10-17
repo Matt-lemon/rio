@@ -148,9 +148,20 @@ class Browser:
                 p.chmod(0o600)
                 return {'ok':True,'status':'CONNECTION_PROOF_SAVED','proof':str(p)}
             if req['op']=='open_url':
-                # A fresh explicit URL may start from an approved search tab or
-                # the last confirmed page, never from an arbitrary user tab.
-                info=await self.status()
+                # An explicit URL starts from a verified search/result page.
+                # Only our isolated managed browser may recover a *truly blank*
+                # tab after moving/restarting its desktop session. Do not
+                # navigate arbitrary tabs or inspect their contents.
+                try:
+                    info=await self.status()
+                except ResearchError as error:
+                    if (self.mode!='managed' or
+                            str(error)!='SEARCH_TAB_REQUIRED_INTERNAL_OR_BLANK'):
+                        raise
+                    empty=await self.code('return {rio_research:{blank:page.url()==="about:blank"}};')
+                    if empty.get('blank') is not True:
+                        raise error
+                    info={'url':'about:blank'}
                 requested=req['url']
                 self.results=[];self.search_url=None;self.opened_url=None
                 self.opened_index=None;self.query=None
