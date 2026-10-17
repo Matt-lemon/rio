@@ -20,6 +20,15 @@ def test_direct_url_explicit_natural_forms(monkeypatch,text):
     sent.assert_called_once_with('url https://example.org/docs?id=42')
 
 
+def test_named_site_uses_one_direct_browser_request_not_search(monkeypatch):
+    sent=Mock(return_value={'ok':True,'status':'URL_PAGE_OPENED',
+                             'url':'https://chatgpt.com/','title':'ChatGPT'})
+    monkeypatch.setattr(browser,'request',sent)
+    answer=browser.BrowserConversation().handle('리오야 GPT 하나 열어봐')
+    assert 'ChatGPT' in answer and 'https://chatgpt.com/' in answer
+    sent.assert_called_once_with('url https://chatgpt.com/')
+
+
 def test_sensitive_direct_url_is_rejected_locally_without_transport(monkeypatch):
     sent=Mock(side_effect=AssertionError('browser should not be called'))
     monkeypatch.setattr(browser,'request',sent)

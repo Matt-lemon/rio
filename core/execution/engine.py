@@ -284,9 +284,9 @@ class Task:
                 tool = self.catalog.check(name, args)
                 effect = self.catalog.effect(tool, args)
                 if name == 'browser.open_url':
-                    from core.browser_url import direct_url, public_url
+                    from core.browser_url import requested_url, public_url
                     requested = (request[len('/browse url '):].strip()
-                                 if request.startswith('/browse url ') else direct_url(request))
+                                 if request.startswith('/browse url ') else requested_url(request))
                     if not public_url(args['url']) or requested != args['url']:
                         raise ValueError('UNREQUESTED_URL')
                 if 'query' in args and (SENSITIVE.search(args['query']) or re.search(r'https?://|[\\/]|\b\d{6,}\b|[\n\r\t]', args['query'])):

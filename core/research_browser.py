@@ -8,7 +8,7 @@ import stat
 import time
 import unicodedata
 from urllib.parse import urlparse
-from core.browser_url import direct_url, public_url
+from core.browser_url import direct_url, requested_url, public_url
 
 
 # Site identities, never article addresses or IDs. The operator's expected URL
@@ -173,7 +173,7 @@ class BrowserConversation:
         text=text.strip()
         if text.startswith('/browse '):return self._run(text)
         clean=re.sub(r'^리오(?:야)?[,，]?\s*','',text).rstrip('.!。')
-        requested=direct_url(text)
+        requested=requested_url(text)
         if requested is not None:
             if not public_url(requested):
                 return format_reply({'ok':False,'status':'PUBLIC_PAGE_REQUIRED'})

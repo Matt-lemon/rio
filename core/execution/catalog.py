@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .builtins import builtin_contracts
 from .types import TEXT, enum, fingerprint, spec, validate
-from core.browser_url import direct_url, public_url
+from core.browser_url import direct_url, requested_url, public_url
 
 
 def approved_generated(item):
@@ -135,6 +135,10 @@ class Catalog:
         if requested is not None:
             return chosen('browser.open_url', url=requested) if public_url(requested) else {
                 'kind':'clarify','question':'HTTPS 공개 페이지 주소만 열 수 있어. 내부망·인증 주소는 열지 않을게.'}
+        known = requested_url(clean)
+        if known is not None:
+            return chosen('browser.open_url', url=known) if public_url(known) else {
+                'kind':'clarify','question':'해당 사이트 주소를 안전하게 확인하지 못했어.'}
         if clean in {'/core status', '/status core'}:
             return chosen('core.status')
         pc = parse_pc_request(clean)

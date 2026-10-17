@@ -12,6 +12,18 @@ SENSITIVE_KEYS = re.compile(
     r'^(?:access_token|refresh_token|id_token|token|auth|authorization|'
     r'api[_-]?key|secret|password|passwd|session(?:_id)?|code)$', re.I)
 
+# Explicit, stable entry points only. These are not a general search index.
+# All other names remain subject to the existing browser/search selection flow.
+KNOWN_SITES = {
+    'gpt': 'https://chatgpt.com/',
+    'chatgpt': 'https://chatgpt.com/',
+    '챗지피티': 'https://chatgpt.com/',
+    '유튜브': 'https://www.youtube.com/',
+    'youtube': 'https://www.youtube.com/',
+    '깃허브': 'https://github.com/',
+    'github': 'https://github.com/',
+}
+
 
 def public_url(value):
     if not isinstance(value, str) or not 1 <= len(value) <= 2048:
@@ -59,3 +71,29 @@ def direct_url(command):
         if match:
             return match.group(1)
     return None
+
+
+def known_site_url(command):
+    """Map only an explicit request to open a known site's *homepage*.
+
+    The user must identify the site and use an opening verb; ambiguous names,
+    search requests and compound instructions do not become navigation.
+    """
+    if not isinstance(command, str):
+        return None
+    text = re.sub(r'^리오(?:야)?[,，]?\s*', '', command.strip()).rstrip('.!。')
+    name = '|'.join(re.escape(name) for name in sorted(KNOWN_SITES, key=len, reverse=True))
+    match = re.fullmatch(
+        rf'(?:브라우저(?:에서|로)?\s*)?(?P<site>{name})\s*'
+        r'(?:공식\s*)?(?:(?:웹\s*)?사이트|홈페이지|페이지)?(?:를|을)?\s*'
+        r'(?:하나\s*)?(?:찾아서\s*(?:그\s*페이지(?:를|을)?\s*)?)?'
+        r'(?:열어\s*(?:줘|주세요|봐(?:줘|봐)?|보세요)?|띄워\s*(?:줘|주세요))',
+        text, flags=re.I)
+    if match is None:
+        return None
+    return KNOWN_SITES[match.group('site').casefold()]
+
+
+def requested_url(command):
+    """Only caller-authorized URL: literal explicit URL or known homepage."""
+    return direct_url(command) or known_site_url(command)
