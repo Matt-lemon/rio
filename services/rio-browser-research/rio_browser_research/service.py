@@ -169,7 +169,8 @@ class Browser:
                 if self.failed_navigation_url:
                     # A new explicit search may leave our own rejected redirect.
                     # Match its exact URL before navigation; never read that page.
-                    info={'url':self.failed_navigation_url,'origin':urlparse(self.search_url).scheme+'://'+urlparse(self.search_url).netloc}
+                    source=urlparse(self.search_url or 'https://www.google.com/')
+                    info={'url':self.failed_navigation_url,'origin':source.scheme+'://'+source.netloc}
                 else:info=await self.status()
                 query=req['query'].strip()
                 base='https://www.bing.com' if urlparse(self.search_url or info['origin']).hostname in ('bing.com','www.bing.com') else 'https://www.google.com'

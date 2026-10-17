@@ -73,6 +73,23 @@ def test_direct_url_rejects_private_redirect_and_preserves_no_accepted_page():
     assert b.opened_url is None and b.failed_navigation_url=='http://127.0.0.1/private'
 
 
+def test_search_can_recover_from_rejected_direct_url_without_prior_search():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None)
+    b.search_url=None
+    b.failed_navigation_url='http://127.0.0.1/blocked'
+    b.code=AsyncMock(return_value={
+        'url':'https://www.google.com/search?q=docs&hl=ko',
+        'rows':[{'title':'Docs','url':'https://example.org/docs'}]})
+    result=asyncio.run(b.handle({'op':'search','query':'docs'}))
+    assert result['ok'] and result['status']=='SEARCH_RESULTS_READY'
+    assert b.failed_navigation_url is None
+    body=b.code.call_args.args[0]
+    assert 'http://127.0.0.1/blocked' in body
+    assert 'https://www.google.com/search' in body
+
+
 def test_parser_does_not_return_private_mcp_metadata():
     response=SimpleNamespace(is_error=False,content=[SimpleNamespace(type='text',text='### Result\n{"rio_research":{"title":"Google"}}\n### Page\nprivate metadata')])
     assert parse_result(response)=={'title':'Google'}
