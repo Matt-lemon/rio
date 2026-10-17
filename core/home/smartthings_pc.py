@@ -261,6 +261,8 @@ class PcController:
             return {**observation, "result": "ALREADY_REACHABLE", "commands_sent": 0}
         if observation["switch"] == "on":
             return {**observation, "result": "ON_NOT_REACHABLE", "commands_sent": 0}
+        if getattr(self.transport, "control_enabled", None) is False:
+            return {**observation, "result": "REJECTED", "code": "CLI_CONTROL_DISABLED", "commands_sent": 0}
         with WakeLedger(self.ledger_path) as ledger:
             key = ledger.reserve(self.binding["device_id"], request_key)
             if key is None:
@@ -290,6 +292,8 @@ class PcController:
         if readiness != "IDLE":
             return {**observation, "result": "SHUTDOWN_" + ("BUSY" if readiness == "BUSY" else "UNVERIFIED"),
                     "commands_sent": 0}
+        if getattr(self.transport, "control_enabled", None) is False:
+            return {**observation, "result": "REJECTED", "code": "CLI_CONTROL_DISABLED", "commands_sent": 0}
         with WakeLedger(self.ledger_path) as ledger:
             key = ledger.reserve_shutdown(self.binding["device_id"], request_key)
             if key is None:
@@ -312,9 +316,17 @@ class PcController:
 
 def controller_from_environment() -> PcController:
     binding = load_binding(Path(os.getenv("RIO_PC_TARGET_FILE", str(Path.home() / ".config/rio/smartthings-pc.json"))))
-    token = read_private(Path(os.getenv("RIO_SMARTTHINGS_TOKEN_FILE", str(Path.home() / ".config/rio/smartthings-token")))).strip()
+    provider = os.getenv("RIO_PC_TRANSPORT", "pat")
+    if provider == "oauth-cli":
+        from .smartthings_cli import from_environment
+        transport = from_environment(binding)
+    elif provider == "pat":
+        token = read_private(Path(os.getenv("RIO_SMARTTHINGS_TOKEN_FILE", str(Path.home() / ".config/rio/smartthings-token")))).strip()
+        transport = SmartThingsPcTransport(binding, token)
+    else:
+        raise PcError("INVALID_AUTH_PROVIDER")
     ledger = Path(os.getenv("RIO_PC_WAKE_LEDGER", str(Path.home() / ".local/state/rio/pc-power/commands.sqlite3")))
-    return PcController(binding, SmartThingsPcTransport(binding, token), ledger)
+    return PcController(binding, transport, ledger)
 
 
 def parse_pc_request(text: str) -> str | None:
@@ -349,6 +361,8 @@ def result_message(value: dict, action: str) -> str:
     if result in {"UNKNOWN", "PENDING_DO_NOT_RETRY"}:
         return "앞선 전원 요청의 결과가 아직 불확실해요. 중복 전송하지 않고 상태만 확인해 주세요."
     if result == "REJECTED":
+        if value.get("code") == "CLI_CONTROL_DISABLED":
+            return "공식 CLI 읽기 전용 모드여서 PC 전원 명령을 보내지 않았어요."
         return "스마트싱스가 전원 요청을 거부했어요. 인증과 제어 권한을 확인해 주세요."
     if value.get("pc_ssh_reachable"):
         if value.get("switch") == "off":
