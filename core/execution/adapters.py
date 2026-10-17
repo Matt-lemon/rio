@@ -99,13 +99,14 @@ class Adapters:
                 raw = browser.open_topic_result(args['query'])
             else:
                 command = {'search': lambda: 'search ' + args['query'],
+                           'open_url': lambda: 'url ' + args['url'],
                            'open_result': lambda: 'open ' + str(args['index']),
                            'back_results': lambda: 'back', 'status': lambda: 'status'}[op]()
                 raw = browser.run_result(command)
-            if op in {'search', 'open_topic'}:
+            if op in {'search', 'open_topic', 'open_url'}:
                 with self.store.transaction(progress.claim if progress else None, running=False, revision=False) as db:
                     db.execute("INSERT INTO meta VALUES('browser_owner',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (session,))
-            evidence = {k: raw[k] for k in ('status', 'title', 'url', 'results', 'query', 'index','requested_host','site_verified','expected_host','actual_host') if k in raw}
+            evidence = {k: raw[k] for k in ('status', 'title', 'url', 'results', 'query', 'index','requested_host','site_verified','expected_host','actual_host','requested_url','redirected') if k in raw}
             # A title and URL are navigation evidence, never page-content evidence.
             evidence['content_read'] = False
             return ToolResult('NEED_INPUT' if raw.get('needs_selection') else 'OBSERVED' if raw.get('ok') else 'UNKNOWN',

@@ -3,6 +3,42 @@ from unittest.mock import Mock
 import pytest
 
 from core import research_browser as browser
+from core.browser_url import direct_url
+
+
+@pytest.mark.parametrize('text',[
+    'https://example.org/docs?id=42',
+    '리오야 https://example.org/docs?id=42 열어줘',
+    '주소 열어줘: https://example.org/docs?id=42',
+])
+def test_direct_url_explicit_natural_forms(monkeypatch,text):
+    sent=Mock(return_value={'ok':True,'status':'URL_PAGE_OPENED',
+                             'url':'https://example.org/docs?id=42','title':'Docs'})
+    monkeypatch.setattr(browser,'request',sent)
+    assert direct_url(text)=='https://example.org/docs?id=42'
+    assert 'Docs' in browser.BrowserConversation().handle(text)
+    sent.assert_called_once_with('url https://example.org/docs?id=42')
+
+
+def test_sensitive_direct_url_is_rejected_locally_without_transport(monkeypatch):
+    sent=Mock(side_effect=AssertionError('browser should not be called'))
+    monkeypatch.setattr(browser,'request',sent)
+    reply=browser.BrowserConversation().handle('https://home.google.com/')
+    assert '내부망·계정·인증' in reply
+    sent.assert_not_called()
+
+
+def test_direct_url_replaces_followup_search_context(monkeypatch):
+    replies=iter([{'ok':True,'status':'SEARCH_RESULTS_READY','results':[{'index':1,'title':'Old','url':'https://example.org/old'}]},
+                  {'ok':True,'status':'URL_PAGE_OPENED','url':'https://example.org/new','title':'New'}])
+    sent=Mock(side_effect=lambda _:next(replies))
+    monkeypatch.setattr(browser,'request',sent)
+    b=browser.BrowserConversation()
+    b.handle('검색어 검색해줘')
+    assert b.results
+    b.handle('https://example.org/new')
+    assert not b.results and b.index is None
+    assert b.handle('첫 번째 거 열어줘') is None
 
 
 @pytest.mark.parametrize('text', [

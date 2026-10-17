@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .builtins import builtin_contracts
 from .types import TEXT, enum, fingerprint, spec, validate
+from core.browser_url import direct_url, public_url
 
 
 def approved_generated(item):
@@ -126,6 +127,14 @@ class Catalog:
         def chosen(name, **arguments):
             return {'kind': 'tool', 'name': name, 'arguments': arguments, 'explicit': True}
         clean = text.strip()
+        if clean.startswith('/browse url '):
+            url=clean[len('/browse url '):].strip()
+            return chosen('browser.open_url',url=url) if public_url(url) else {
+                'kind':'clarify','question':'HTTPS 공개 페이지 주소만 열 수 있어. 내부망·인증 주소는 열지 않을게.'}
+        requested = direct_url(clean)
+        if requested is not None:
+            return chosen('browser.open_url', url=requested) if public_url(requested) else {
+                'kind':'clarify','question':'HTTPS 공개 페이지 주소만 열 수 있어. 내부망·인증 주소는 열지 않을게.'}
         if clean in {'/core status', '/status core'}:
             return chosen('core.status')
         pc = parse_pc_request(clean)
@@ -220,6 +229,7 @@ class Catalog:
             if name == 'browser.open_topic':
                 return browser.open_topic(args['query'])
             operations = {'browser.search': lambda: 'search ' + args['query'],
+                          'browser.open_url': lambda: 'url ' + args['url'],
                           'browser.open_result': lambda: 'open ' + str(args['index']),
                           'browser.back_results': lambda: 'back', 'browser.status': lambda: 'status'}
             return browser._run(operations[name]())

@@ -67,7 +67,7 @@ class Bridge:
                 return self.status(session,key)
             tool=self.catalog.check(request['name'],request['args'],request['revision'])
             browser=self.engine.browser(session)
-            if tool['name'].startswith('legacy.') or tool['name'] in {'pc.wake','pc.shutdown','spotify.timer.schedule','spotify.timer.cancel'}:
+            if tool['name'].startswith('legacy.') or tool['name'] in {'pc.wake','pc.shutdown','spotify.timer.schedule','spotify.timer.cancel','browser.open_url'}:
                 trusted=self.catalog.resolve(original,browser)
                 if not trusted or trusted.get('name')!=tool['name'] or trusted.get('arguments')!=request['args']:
                     raise ValueError('EXPLICIT_COMMAND_REQUIRED')

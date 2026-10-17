@@ -21,7 +21,56 @@ def test_private_and_sensitive_pages_are_blocked(url):assert not public_url(url)
 
 def test_normal_read_only_public_page_is_allowed():
     assert public_url('https://www.korean.go.kr/front/main.do')
-    for request in ({'op':'status'},{'op':'proof'},{'op':'search','query':'추구미'},{'op':'open_result','index':1}):validate(request)
+    for request in ({'op':'status'},{'op':'proof'},{'op':'search','query':'추구미'},
+                    {'op':'open_result','index':1},{'op':'open_url','url':'https://example.org/a?id=4321'}):validate(request)
+
+
+@pytest.mark.parametrize('url', [
+    'http://example.org/a','https://localhost/a','https://192.0.2.234/a',
+    'https://127.0.0.1/a','https://[::1]/a','https://169.254.169.254/a',
+    'https://home.google.com/','https://accounts.google.com','https://example.org/logout',
+    'https://example.org?a=1&access_token=secret','https://example.org/#token=secret',
+    'https://example.org:8443/a','https://example.org\\@evil.org',
+    'https://example.org\nconsole.log(1)','https://example.org/abc def',
+])
+def test_direct_url_rejects_nonpublic_or_sensitive_input(url):
+    with pytest.raises(ResearchError,match='PUBLIC_PAGE_REQUIRED'):
+        validate({'op':'open_url','url':url})
+
+
+def test_direct_url_navigates_only_from_confirmed_context_and_records_final_url():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None,'managed')
+    b.status=AsyncMock(return_value={'url':'https://www.google.com/'})
+    b.code=AsyncMock(return_value={'url':'https://example.org/docs','title':'Document'})
+    b.results=[{'index':1,'title':'stale','url':'https://example.org/old'}]
+    result=asyncio.run(b.handle({'op':'open_url','url':'https://example.org/docs'}))
+    assert result['ok'] and result['status']=='URL_PAGE_OPENED'
+    assert not result['redirected'] and result['url']=='https://example.org/docs'
+    assert b.opened_url=='https://example.org/docs' and b.results==[]
+    code=b.code.call_args.args[0]
+    assert 'page.url()!==' in code and 'https://www.google.com/' in code
+    assert 'page.goto(' in code and 'https://example.org/docs' in code
+
+
+def test_direct_url_reports_public_redirect_without_claiming_exact_target():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None);b.status=AsyncMock(return_value={'url':'https://www.google.com/'})
+    b.code=AsyncMock(return_value={'url':'https://www.example.org/final','title':'Final'})
+    r=asyncio.run(b.handle({'op':'open_url','url':'https://example.org/start'}))
+    assert r['redirected'] is True and r['url']=='https://www.example.org/final'
+
+
+def test_direct_url_rejects_private_redirect_and_preserves_no_accepted_page():
+    import asyncio
+    from unittest.mock import AsyncMock
+    b=Browser(None);b.status=AsyncMock(return_value={'url':'https://www.google.com/'})
+    b.code=AsyncMock(return_value={'url':'http://127.0.0.1/private','title':'Private'})
+    with pytest.raises(ResearchError,match='FINAL_PAGE_NOT_PUBLIC_RESEARCH_REJECTED'):
+        asyncio.run(b.handle({'op':'open_url','url':'https://example.org/redirect'}))
+    assert b.opened_url is None and b.failed_navigation_url=='http://127.0.0.1/private'
 
 
 def test_parser_does_not_return_private_mcp_metadata():

@@ -8,6 +8,8 @@ def builtin_contracts():
     """Read local binding metadata only. No credentials, API calls or ledger writes."""
     tools=[
         spec('browser.search','전용 Edge에 검색 결과를 보여준다.', 'navigate',query=TEXT),
+        spec('browser.open_url','사용자가 준 HTTPS 공개 URL을 리오 전용 브라우저에서 직접 연다.', 'navigate',
+             url={'type':'string','minLength':1,'maxLength':2048}),
         spec('browser.open_topic','주제에 맞는 공개 페이지를 검색하고 연다. 뉴스 기사 열기 포함.', 'navigate',query=TEXT),
         spec('browser.open_result','이 대화에서 확인한 검색 결과 번호를 연다.', 'navigate',index={'type':'integer','minimum':1,'maximum':5}),
         spec('browser.back_results','이 대화의 마지막 검색 결과 목록으로 돌아간다.', 'navigate'),

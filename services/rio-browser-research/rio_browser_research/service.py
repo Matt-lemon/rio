@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import json
 import os
 from pathlib import Path
@@ -10,6 +9,7 @@ import socket
 import signal
 import struct
 from urllib.parse import quote,urlparse
+from core.browser_url import public_url
 from core.browser_transport import mode_name,profile,profile_label,endpoint as transport_endpoint,private_directory,mcp_arguments,cdp_identity,profile_in_use
 
 ROOT=Path.home()/'.local/state/rio/browser-research'
@@ -18,18 +18,6 @@ ENGINES={'www.google.com','google.com','www.google.co.kr','google.co.kr','www.bi
 
 
 class ResearchError(Exception):pass
-
-
-def public_url(value):
-    try:
-        p=urlparse(value);host=(p.hostname or '').lower()
-        if p.scheme!='https' or p.username or p.password or p.port not in (None,443):return False
-        if '.' not in host or host.endswith(('.local','.localhost','.internal')):return False
-        if host in ('home.google.com','accounts.google.com','my.smartthings.com','account.samsung.com'):return False
-        if re.search(r'/(?:login|signin|logout|checkout|payment|accounts)(?:/|$)',p.path,re.I):return False
-        try:return ipaddress.ip_address(host).is_global
-        except ValueError:return True
-    except (ValueError,TypeError):return False
 
 
 def validate(req):
@@ -41,6 +29,9 @@ def validate(req):
             raise ResearchError('PUBLIC_SEARCH_TERM_REQUIRED')
         return
     if set(req)=={'op','index'} and req['op']=='open_result' and type(req['index']) is int and 1<=req['index']<=5:return
+    if set(req)=={'op','url'} and req['op']=='open_url':
+        if public_url(req['url']):return
+        raise ResearchError('PUBLIC_PAGE_REQUIRED')
     raise ResearchError('OPERATION_NOT_ALLOWED')
 
 
@@ -156,6 +147,24 @@ class Browser:
                 await self.code('await page.screenshot({path:'+json.dumps(str(p))+',fullPage:false,mask:[page.locator("input[type=password],input[autocomplete=one-time-code]")]});return {rio_research:{saved:true}};')
                 p.chmod(0o600)
                 return {'ok':True,'status':'CONNECTION_PROOF_SAVED','proof':str(p)}
+            if req['op']=='open_url':
+                # A fresh explicit URL may start from an approved search tab or
+                # the last confirmed page, never from an arbitrary user tab.
+                info=await self.status()
+                requested=req['url']
+                self.results=[];self.search_url=None;self.opened_url=None
+                self.opened_index=None;self.query=None
+                body='if(page.url()!=='+json.dumps(info['url'])+')return {rio_research:{error:"SEARCH_CHANGED"}};'
+                body+='await page.goto('+json.dumps(requested)+',{waitUntil:"domcontentloaded",timeout:15000});'
+                body+='return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};'
+                data=await self.code(body)
+                if not public_url(data.get('url')):
+                    self.failed_navigation_url=data.get('url')
+                    raise ResearchError('FINAL_PAGE_NOT_PUBLIC_RESEARCH_REJECTED')
+                self.opened_url=data['url']
+                self.failed_navigation_url=None
+                return {'ok':True,'status':'URL_PAGE_OPENED','requested_url':requested,
+                        'redirected':data['url']!=requested,**data}
             if req['op']=='search':
                 if self.failed_navigation_url:
                     # A new explicit search may leave our own rejected redirect.

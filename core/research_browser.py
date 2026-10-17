@@ -8,6 +8,7 @@ import stat
 import time
 import unicodedata
 from urllib.parse import urlparse
+from core.browser_url import direct_url, public_url
 
 
 # Site identities, never article addresses or IDs. The operator's expected URL
@@ -38,6 +39,7 @@ def request(command):
     elif text=='proof':payload={'op':'proof'}
     elif text=='back':payload={'op':'back_results'}
     elif text.startswith('search '):payload={'op':'search','query':text[7:].strip()}
+    elif text.startswith('url '):payload={'op':'open_url','url':text[4:].strip()}
     elif text.startswith('open ') and text[5:].isdigit():payload={'op':'open_result','index':int(text[5:])}
     elif selected_result(text) is not None:payload={'op':'open_result','index':selected_result(text)}
     else:return {'ok':False,'status':'USE_STATUS_SEARCH_OR_OPEN'}
@@ -76,6 +78,9 @@ def format_reply(result):
         return '\n'.join(lines)
     if status == 'RESULT_PAGE_OPENED' and result.get('ok'):
         return f'페이지를 열었어: {_line(result.get("title", ""))}\n{_line(result.get("url", ""))}'
+    if status == 'URL_PAGE_OPENED' and result.get('ok'):
+        suffix = ' (요청한 주소에서 이동됨)' if result.get('redirected') else ''
+        return f'지정한 페이지를 열었어{suffix}: {_line(result.get("title", ""))}\n{_line(result.get("url", ""))}'
     messages = {
         'NO_CURRENT_SEARCH_RESULT': '열 수 있는 검색 결과가 없어. 먼저 /browse search 검색어로 검색해 줘.',
         'NO_VERIFIED_RESULTS': '열 수 있는 검색 결과를 확인하지 못했어. 검색어를 바꿔서 다시 검색해 줘.',
@@ -87,14 +92,15 @@ def format_reply(result):
         'CONNECTION_PROOF_SAVED': '브라우저 확인 화면을 저장했어.',
         'BROWSER_CONNECTION_UNVERIFIED': '브라우저 연결을 확인하지 못했어. 페이지가 열렸는지도 미확인이야.',
         'REQUESTED_SITE_MISMATCH': '요청한 사이트와 실제 도착한 사이트가 달라서 정확한 페이지를 찾았다고 보고하지 않을게.',
-        'USE_STATUS_SEARCH_OR_OPEN': '검색은 /browse search 검색어, 페이지 열기는 “검색 결과 1번 열어줘”로 입력해 줘.',
+        'PUBLIC_PAGE_REQUIRED': 'HTTPS 공개 페이지 주소만 열 수 있어. 내부망·계정·인증 주소는 열지 않을게.',
+        'USE_STATUS_SEARCH_OR_OPEN': '검색은 /browse search 검색어, 직접 열기는 /browse url https://사이트주소, 검색 결과는 /browse open 1로 입력해 줘.',
     }
     return messages.get(status, f'브라우저 작업을 완료했는지 확인하지 못했어. 상태: {_line(status)}')
 
 
 def handle(command):
     text=command.removeprefix('/browse ').strip()
-    if not (text in ('status','상태','proof','back') or text.startswith(('search ','open ')) or selected_result(text) is not None):
+    if not (text in ('status','상태','proof','back') or text.startswith(('search ','open ','url ')) or selected_result(text) is not None):
         reply=BrowserConversation().handle(text)
         if reply is not None:return reply
     return format_reply(request(command))
@@ -121,7 +127,7 @@ class BrowserConversation:
         """Same verified browser operation, with its structured result retained."""
         result=request(command)
         operation=command.removeprefix('/browse ').strip().split()[0]
-        self.last_operation={'open':'open_result','back':'back_results'}.get(operation,operation)
+        self.last_operation={'open':'open_result','url':'open_url','back':'back_results'}.get(operation,operation)
         status=result.get('status')
         if result.get('ok') and status in ('SEARCH_RESULTS_READY','SEARCH_RESULTS_RETURNED'):
             if operation=='search':
@@ -134,6 +140,9 @@ class BrowserConversation:
                         'actual_host':urlparse(result.get('url','')).hostname}
             if self.required_host:result={**result,'requested_host':self.required_host,'site_verified':True}
             self.index=result.get('index');self.checked=time.monotonic()
+        elif result.get('ok') and status=='URL_PAGE_OPENED':
+            self.clear()
+            self.checked=time.monotonic()
         elif not result.get('ok'):
             self.clear()
         return result
@@ -164,6 +173,11 @@ class BrowserConversation:
         text=text.strip()
         if text.startswith('/browse '):return self._run(text)
         clean=re.sub(r'^리오(?:야)?[,，]?\s*','',text).rstrip('.!。')
+        requested=direct_url(text)
+        if requested is not None:
+            if not public_url(requested):
+                return format_reply({'ok':False,'status':'PUBLIC_PAGE_REQUIRED'})
+            return self._run('url '+requested)
         scoped_open=re.fullmatch(r'((?:GeekNews|긱뉴스)(?:에서|의)?\s+.+?)\s*(?:소개\s*)?(?:글|페이지|기사)(?:를|을)?\s*(?:찾아서\s*)?열어\s*(?:줘|주세요)',clean,re.I)
         if scoped_open:
             query=scoped_open.group(1).strip()
