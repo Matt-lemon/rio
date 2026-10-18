@@ -39,6 +39,10 @@ def registry_from_environment() -> HomeToolRegistry:
 
 def handle_home_command(text: str, factory=None) -> str | None:
     text = text.strip()
+    # Provider-explicit commands must precede generic '/home <label> status' parsing.
+    if text.startswith('/home smartthings '):
+        from .smartthings_direct import handle_direct_command
+        return handle_direct_command(text)
     from .device_catalog import handle_device_read
     inventory_reply = handle_device_read(text)
     if inventory_reply is not None:
