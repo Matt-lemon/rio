@@ -30,5 +30,6 @@ socket.socket.connect=guarded_connect
 socket.socket.connect_ex=guarded_connect_ex
 subprocess.Popen=guarded_popen
 sys.path.insert(0,os.getcwd())
+sys.path.insert(0,str(Path(os.getcwd())/'services/rio-tools'))
 import pytest
 raise SystemExit(pytest.main(sys.argv[1:]))

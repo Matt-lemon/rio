@@ -33,8 +33,9 @@ class DirectLight:
         self.transport = transport
         self.ledger_path = Path(ledger_path)
         self.enabled = enabled is True
-        # Production factories pass the same primary ledger for both providers.
-        self.primary_ledger_path = Path(primary_ledger_path) if primary_ledger_path is not None else self.ledger_path.with_name('google-home.sqlite3')
+        # Omitted arguments must still join the shared home fence. Deriving a
+        # private primary path from this provider's DB silently splits writers.
+        self.primary_ledger_path = Path(primary_ledger_path) if primary_ledger_path is not None else primary_path()
         self.revalidate = revalidate
 
     @staticmethod

@@ -23,7 +23,8 @@ def sample(tmp_path, *, state='off', timestamp=None):
     cli.control_enabled=True
     cli.switch.return_value={'value':state,'timestamp':timestamp or clock_stamp()}
     binding={'device_id':UUID,'label':'주방','device_type':'EDGE_CHILD'}
-    return DirectLight('주방', binding, cli, tmp_path/'private'/'ledger.db', True),cli
+    return DirectLight('주방', binding, cli, tmp_path/'private'/'ledger.db', True,
+                       primary_ledger_path=tmp_path/'primary/commands.sqlite3'),cli
 
 
 def test_legacy_unknown_without_dispatch_time_is_preserved(tmp_path):
