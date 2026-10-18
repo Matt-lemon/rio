@@ -6,7 +6,8 @@ import subprocess
 from types import SimpleNamespace
 
 from tools.ci import license_guard as guard
-from tools.ci.run_tests import command, MISSING_GATEWAY_TESTS
+from tools.ci.run_tests import command
+import pytest
 
 
 def policy():
@@ -83,10 +84,9 @@ def test_binary_bundles_require_explicit_source_license_notice(tmp_path):
     assert errors==[] and approved==['weights.gguf']
 
 
-def test_missing_gateway_is_visible_narrow_deselection(tmp_path):
-    cmd=command(tmp_path)
-    for name in MISSING_GATEWAY_TESTS:
-        assert ['--deselect',name] == cmd[cmd.index(name)-1:cmd.index(name)+1]
+def test_missing_gateway_fails_closed_without_deselection(tmp_path):
+    with pytest.raises(FileNotFoundError, match='REVIEWED_GATEWAY_SOURCE_REQUIRED_FOR_CI'):
+        command(tmp_path)
     (tmp_path/'integrations/google_home/nas').mkdir(parents=True)
     (tmp_path/'integrations/google_home/nas/gateway.py').write_text('')
     cmd=command(tmp_path)

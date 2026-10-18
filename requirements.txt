@@ -3,6 +3,7 @@ uvicorn[standard]
 httpx
 pydantic
 pydantic-settings
+jsonschema>=4.21,<5
 python-dotenv
 pyyaml
 rich
