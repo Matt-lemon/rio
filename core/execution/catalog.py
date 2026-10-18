@@ -74,7 +74,8 @@ class Catalog:
             tools += [spec('legacy.' + family, '기존 명시적 명령 호환 경로.', 'control', command={'type': 'string', 'maxLength': 2000})
                       for family in ('home', 'pc', 'dubbing')]
         if planner:
-            tools = [t for t in tools if not t['name'].startswith('spotify.timer.') or t['effect'] == 'read']
+            tools = [t for t in tools if t['name'] != 'home.smartthings' and
+                     (not t['name'].startswith('spotify.timer.') or t['effect'] == 'read')]
         result = []
         for declaration in tools:
             tool = copy.deepcopy(declaration)
@@ -113,7 +114,7 @@ class Catalog:
 
     @staticmethod
     def effect(tool, args):
-        if tool['name'] == 'spotify.control' and args.get('action') == 'status':
+        if tool['name'] in {'spotify.control', 'home.smartthings'} and args.get('action') == 'status':
             return 'read'
         return tool['effect']
 
@@ -139,6 +140,9 @@ class Catalog:
         if known is not None:
             return chosen('browser.open_url', url=known) if public_url(known) else {
                 'kind':'clarify','question':'해당 사이트 주소를 안전하게 확인하지 못했어.'}
+        direct_st = re.fullmatch(r'/home smartthings (주방|거실) (status|on|off)', clean)
+        if direct_st:
+            return chosen('home.smartthings', target=direct_st[1], action=direct_st[2])
         if clean in {'/core status', '/status core'}:
             return chosen('core.status')
         pc = parse_pc_request(clean)

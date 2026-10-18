@@ -17,6 +17,8 @@ def builtin_contracts():
         spec('web.search','화면을 열 필요 없이 최신 사실·용어·출처를 찾아 답한다.', 'read',query=TEXT),
         spec('spotify.control','NAS Spotify 음악 상태·재생·일시정지. TV나 브라우저 영상 조작 아님.', 'control',action=enum('status','play','pause')),
         spec('home.status','Google Home 연결 상태를 읽는다.', 'read'),
+        spec('home.smartthings', '공식 SmartThings CLI에서 고정된 조명의 상태 조회 또는 명시적 1회 전원 제어.', 'control',
+             target=enum('주방', '거실'), action=enum('status', 'on', 'off')),
         spec('pc.status','메인 PC 상태를 읽는다. 전원 조작은 제공하지 않는다.', 'read'),
         spec('dubbing.health','기존 더빙 서버 상태만 읽는다. 서버 시작·영상 제출 아님.', 'read'),
     ]

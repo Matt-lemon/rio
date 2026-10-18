@@ -131,6 +131,37 @@ class Adapters:
             return ToolResult(raw['status'], message, raw, key, 'OBSERVED' if state else 'NONE', raw.get('code'))
         if name.startswith('spotify.timer.'):
             return self.timer(name, args, key, progress)
+        if name == 'home.smartthings':
+            from core.home.smartthings_direct import from_environment
+            direct = from_environment(args['target'])
+            target, action = args['target'], args['action']
+            if action == 'status':
+                state = direct.status()
+                message = ('SmartThings '+target+' 스위치 보고값: '+
+                           ('켜짐' if state['switch'] == 'on' else '꺼짐')+
+                           '. 실제 전등 상태는 별도 확인이 필요해.')
+                return ToolResult('OBSERVED', message, state, key, 'SWITCH_REPORT')
+            raw = direct.set_power(action == 'on', request_key=key,
+                                   before_dispatch=(lambda: progress.attempted('ST_CLI_DISPATCH_BOUNDARY')) if progress else None)
+            result = raw['result']
+            if result == 'OBSERVED_SWITCH':
+                return ToolResult('OBSERVED', f'SmartThings {target}가 요청한 스위치 상태를 새 변경 시각으로 보고했어. 실물 상태는 별도 확인이 필요해.',
+                                  raw, key, 'SWITCH_REPORT')
+            if result == 'ALREADY_REPORTED':
+                return ToolResult('OBSERVED',f'SmartThings {target} 스위치가 이미 요청한 상태로 보고됐어. 명령을 보내지 않았어.',
+                                  raw, key, 'SWITCH_REPORT')
+            if result == 'REJECTED':
+                return ToolResult('REJECTED', f'SmartThings {target} 제어가 허용되지 않았어. 명령을 보내지 않았어.', raw, key, 'NONE', raw.get('code'))
+            if result == 'PENDING_DO_NOT_RETRY':
+                return ToolResult('UNKNOWN',f'SmartThings {target}의 이전 명령이 미확정이야. 새 명령을 보내지 않았어.', raw, key)
+            if raw.get('post_command_status_checked') is True:
+                switch = raw.get('post_command_switch_report')
+                reported = ('켜짐' if switch == 'on' else '꺼짐') if switch in {'on','off'} else '미확인'
+                message = (f'SmartThings {target} 명령 후 상태를 한 번 확인했어: {reported}. '
+                           '단, 기기 변경 시각으로 이 명령의 반영을 입증하지 못했어. 자동 재전송하지 않아.')
+            else:
+                message = f'SmartThings {target} 명령 후 상태 조회도 실패해 결과가 미확정이야. 자동 재전송하지 않아.'
+            return ToolResult('UNKNOWN', message, raw, key, 'NONE', raw.get('code'))
         if name.startswith('home.'):
             return self.home(name, args, key, progress)
         if name in {'pc.status', 'pc.wake', 'pc.shutdown'}:
@@ -247,13 +278,63 @@ class Adapters:
         from core.home.tools import user_message, HomeToolRegistry
         registry = None
         try:
+            def before_google_dispatch(target, action):
+                # Only a preflight BRIDGE_NOT_READY can trigger a separately
+                # approved fallback. An SDK error after a write never can.
+                # Existing protected adapter implementations (and old
+                # test doubles) must retain their original behavior when
+                # optional fallback capabilities are absent.
+                if not callable(getattr(registry, 'plan', None)):
+                    return None
+                if isinstance(getattr(registry, 'configuration', None), dict):
+                    enabled = registry.configuration.get('enabled') is True
+                elif isinstance(getattr(registry, 'allow_execution', None), bool):
+                    enabled = registry.allow_execution is True
+                else:
+                    return None
+                if not enabled:
+                    return None
+                try:
+                    plan = registry.plan(target, action == 'on') if name == 'home.light' else registry.plan(target, action)
+                except (OSError, TimeoutError, ValueError):
+                    # The independent bridge-health probe below must still
+                    # substantiate an outage before selecting SmartThings.
+                    plan = {'status': 'REJECTED', 'code': 'BRIDGE_NOT_READY'}
+                if plan.get('status') != 'REJECTED' or plan.get('code') != 'BRIDGE_NOT_READY':
+                    return None
+                from core.home.smartthings_fallback import attempt
+                raw = attempt(target,action,key,registry,progress)
+                state = raw.get('result')
+                if state == 'OBSERVED_SWITCH':
+                    return ToolResult('OBSERVED',f'Google Home 브리지가 연결되지 않아 SmartThings가 {target} 스위치의 새 변경 보고를 확인했어. 실물 상태는 별도 확인이 필요해.',
+                                      raw,key,'SWITCH_REPORT')
+                if state == 'ALREADY_REPORTED':
+                    return ToolResult('OBSERVED',f'Google Home 연결 불가. SmartThings에서 {target}이 이미 요청한 상태라고 보고했어. 명령은 보내지 않았어.',
+                                      raw,key,'SWITCH_REPORT')
+                if state == 'UNKNOWN':
+                    return ToolResult('UNKNOWN',f'Google Home 연결 불가. SmartThings {target} 요청은 전송됐으나 결과 미확정이야. 자동 재전송하지 않아.',
+                                      raw,key,'NONE',raw.get('code'))
+                if state == 'PENDING_DO_NOT_RETRY':
+                    return ToolResult('UNKNOWN',f'Google Home 연결 불가. 이전 SmartThings {target} 명령이 미확정이라 새 명령을 보내지 않았어.',raw,key)
+                return ToolResult('REJECTED',f'Google Home 연결 불가. SmartThings {target} 폴백은 물리적 동일 기기 검증 또는 명령 이력 조건을 충족하지 못해 실행하지 않았어.',
+                                  raw,key,'NONE',state)
             if name.startswith('home.device.'):
                 from core.home.device_controls import registry_from_environment as devices
                 registry = devices()
+                target = name.removeprefix('home.device.')
+                # Only power command families have a compatible SmartThings switch fallback.
+                if target in {'에어컨','lens'} and args['action'] in {'on','off'}:
+                    before = before_google_dispatch(target,args['action'])
+                    if before is not None:
+                        return before
                 self.track_home(registry.transport, progress, key)
-                raw = registry.wait_result(registry.execute(name.removeprefix('home.device.'), args['action'], key))
+                raw = registry.wait_result(registry.execute(target, args['action'], key))
             else:
                 registry = registry_from_environment()
+                if name == 'home.light':
+                    before = before_google_dispatch(args['target'],args['action'])
+                    if before is not None:
+                        return before
                 self.track_home(registry.transport, progress, key)
                 if name == 'home.status':
                     raw = registry.call('home_get_status', {})
@@ -276,7 +357,30 @@ class Adapters:
         """Known result lookup only; this method never dispatches an operation."""
         if name.startswith('registered.'):
             return self.registered_result(registry_request('job', request_id=key), key)
+        if name == 'home.smartthings':
+            from core.home.smartthings_direct import from_environment
+            direct = from_environment(args['target'])
+            observed = direct.status()  # read-only; may reconcile a timestamp-proven transition
+            outcome = direct.request_status(key)
+            if outcome['result'] == 'OBSERVED_SWITCH':
+                return ToolResult('OBSERVED', f'SmartThings {args["target"]} 스위치 변경을 새 보고 시각으로 확인했어. 실제 전등 상태는 별도 확인이 필요해.',
+                                  {**observed, **outcome}, key, 'SWITCH_REPORT')
+            return ToolResult('UNKNOWN', 'SmartThings 보고 상태만으로 이전 명령 반영을 입증하지 못했어. 재전송하지 않아.',
+                              {**observed, **outcome}, key)
         if name == 'home.light' or name.startswith('home.device.'):
+            # A prior Google Home outage may have selected SmartThings before
+            # any primary write. Its original request must be looked up there.
+            from core.home.smartthings_fallback import lookup_existing
+            target = args['target'] if name == 'home.light' else name.removeprefix('home.device.')
+            try:
+                existing = lookup_existing(target,key)
+            except Exception:
+                existing = None
+            if existing is not None:
+                if existing['result'] == 'OBSERVED_SWITCH':
+                    return ToolResult('OBSERVED',f'SmartThings {target}가 이전 전원 명령 이후 새 스위치 상태를 보고했어. 실물 동작은 별도 확인이 필요해.',
+                                      existing,key,'SWITCH_REPORT')
+                return ToolResult('UNKNOWN',f'SmartThings {target}의 이전 명령을 새 상태 변화로 확인하지 못했어. 재전송하지 않아.',existing,key)
             from core.home.main_adapter import registry_from_environment
             from core.home.tools import HomeToolRegistry, user_message
             registry = registry_from_environment()
