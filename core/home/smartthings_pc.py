@@ -316,10 +316,31 @@ class PcController:
 
 def controller_from_environment() -> PcController:
     binding = load_binding(Path(os.getenv("RIO_PC_TARGET_FILE", str(Path.home() / ".config/rio/smartthings-pc.json"))))
-    provider = os.getenv("RIO_PC_TRANSPORT", "pat")
+    provider = os.getenv("RIO_PC_TRANSPORT")
+    private_selection = Path.home() / ".config/rio/pc-auth-provider.json"
+    selection = None
+    if provider is None and private_selection.exists():
+        try:
+            selection = json.loads(read_private(private_selection))
+        except (ValueError, UnicodeError):
+            raise PcError("INVALID_AUTH_PROVIDER") from None
+        if (not isinstance(selection, dict) or set(selection) !=
+                {"schema_version", "provider", "cli_root", "cli_sha256"} or
+                type(selection["schema_version"]) is not int or
+                selection["schema_version"] != 1 or selection["provider"] != "oauth-cli" or
+                not isinstance(selection["cli_root"], str) or
+                not isinstance(selection["cli_sha256"], str)):
+            raise PcError("INVALID_AUTH_PROVIDER")
+        provider = "oauth-cli"
+    if provider is None:
+        provider = "pat"
     if provider == "oauth-cli":
-        from .smartthings_cli import from_environment
-        transport = from_environment(binding)
+        from .smartthings_cli import OfficialCliTransport, from_environment
+        if selection is not None:
+            transport = OfficialCliTransport(binding, root=Path(selection["cli_root"]),
+                                             expected_sha256=selection["cli_sha256"])
+        else:
+            transport = from_environment(binding)
     elif provider == "pat":
         token = read_private(Path(os.getenv("RIO_SMARTTHINGS_TOKEN_FILE", str(Path.home() / ".config/rio/smartthings-token")))).strip()
         transport = SmartThingsPcTransport(binding, token)

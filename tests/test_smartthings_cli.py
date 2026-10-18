@@ -130,3 +130,41 @@ def test_cli_commands_are_strict_and_control_gate_is_explicit(root):
         with pytest.raises(PcError):
             transport.request(**kwargs)
     assert runner.calls == []
+
+
+def test_private_operator_selection_uses_cli_without_pat(root, tmp_path, monkeypatch):
+    import core.home.smartthings_pc as pc
+    monkeypatch.setenv('HOME', str(tmp_path))
+    monkeypatch.delenv('RIO_PC_TRANSPORT', raising=False)
+    monkeypatch.setattr(pc, 'load_binding', lambda path: BINDING)
+    settings = tmp_path / '.config/rio'
+    settings.mkdir(parents=True)
+    settings.chmod(0o700)
+    chosen = settings / 'pc-auth-provider.json'
+    chosen.write_text(json.dumps({'schema_version': 1, 'provider': 'oauth-cli',
+                                 'cli_root': str(root), 'cli_sha256': digest(root)}))
+    chosen.chmod(0o600)
+    instance = pc.controller_from_environment()
+    assert isinstance(instance.transport, OfficialCliTransport)
+    assert instance.transport.control_enabled is False
+
+
+def test_operator_selection_rejects_extra_fields_or_exposed_file(root, tmp_path, monkeypatch):
+    import core.home.smartthings_pc as pc
+    monkeypatch.setenv('HOME', str(tmp_path))
+    monkeypatch.delenv('RIO_PC_TRANSPORT', raising=False)
+    monkeypatch.setattr(pc, 'load_binding', lambda path: BINDING)
+    settings = tmp_path / '.config/rio'
+    settings.mkdir(parents=True)
+    settings.chmod(0o700)
+    chosen = settings / 'pc-auth-provider.json'
+    profile = {'schema_version': 1, 'provider': 'oauth-cli',
+               'cli_root': str(root), 'cli_sha256': digest(root)}
+    chosen.write_text(json.dumps(dict(profile, accidental_control=True)))
+    chosen.chmod(0o600)
+    with pytest.raises(PcError, match='INVALID_AUTH_PROVIDER'):
+        pc.controller_from_environment()
+    chosen.write_text(json.dumps(profile))
+    chosen.chmod(0o644)
+    with pytest.raises(PcError, match='PRIVATE_FILE_REQUIRED'):
+        pc.controller_from_environment()
