@@ -169,13 +169,13 @@ class WakeLedger:
     def __exit__(self, *args):
         self.db.close()
 
-    def reserve(self, target: str, request_key: str | None = None) -> str | None:
-        return self._reserve(target, "wake_requests", request_key)
+    def reserve(self, target: str, request_key: str | None = None, *, allow_observed=False) -> str | None:
+        return self._reserve(target, "wake_requests", request_key,allow_observed)
 
-    def reserve_shutdown(self, target: str, request_key: str | None = None) -> str | None:
-        return self._reserve(target, "shutdown_requests", request_key)
+    def reserve_shutdown(self, target: str, request_key: str | None = None, *, allow_observed=False) -> str | None:
+        return self._reserve(target, "shutdown_requests", request_key,allow_observed)
 
-    def _reserve(self, target: str, table: str, request_key: str | None = None) -> str | None:
+    def _reserve(self, target: str, table: str, request_key: str | None = None, allow_observed=False) -> str | None:
         if request_key is not None and not re.fullmatch(r'[A-Za-z0-9_-]{8,100}', request_key):
             raise ValueError('INVALID_REQUEST_ID')
         self.db.execute("BEGIN IMMEDIATE")
@@ -184,8 +184,12 @@ class WakeLedger:
                                                for t in ('wake_requests', 'shutdown_requests')):
                 return None
             for pending_table in ("wake_requests", "shutdown_requests"):
-                if self.db.execute(f"SELECT 1 FROM {pending_table} WHERE target=? "
-                                   "AND state IN ('DISPATCHING','ACCEPTED','UNKNOWN')", (target,)).fetchone():
+                rows=self.db.execute(f"SELECT id,state FROM {pending_table} WHERE target=? "
+                                     "AND state IN ('DISPATCHING','ACCEPTED','UNKNOWN')", (target,)).fetchall()
+                for prior,state in rows:
+                    if allow_observed is True and state=='UNKNOWN':
+                        from .dispatch_guard import DispatchGuard
+                        if DispatchGuard._secondary_observed(self.db,prior,target):continue
                     return None
             key = request_key or str(uuid.uuid4())
             self.db.execute(f"INSERT INTO {table} VALUES (?,?,?,?)",

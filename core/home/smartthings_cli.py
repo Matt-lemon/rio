@@ -110,7 +110,7 @@ class OfficialCliTransport(SmartThingsPcTransport):
                 # CLI completion/dispatch is indeterminate; the durable PC ledger
                 # blocks any automatic retry after a control request.
                 try:
-                    subprocess.run(["docker", "rm", "-f", name], stdin=subprocess.DEVNULL,
+                    self.runner(["docker", "rm", "-f", name], stdin=subprocess.DEVNULL,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                    timeout=5, check=False)
                 except (OSError, subprocess.TimeoutExpired):

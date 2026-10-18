@@ -35,7 +35,7 @@ class FakeTransport:
         self.writes.append((alias, on, key))
         if isinstance(self.response, Exception):
             raise self.response
-        return self.response
+        return {"id":key,**self.response}
 
     def result(self, key):
         return self.job_response

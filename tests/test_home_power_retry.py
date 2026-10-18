@@ -67,8 +67,13 @@ def test_another_device_or_prior_result_cannot_be_used(ledger):
     payload=copy.deepcopy(PAYLOAD);payload['alias']='dev_'+'b'*24
     with pytest.raises(ValueError):authorize(ledger,payload=payload)
     with pytest.raises(ValueError):authorize(ledger,next_key='previous01')
-    ledger.record('previous01',{'status':'SUCCEEDED'})
-    with pytest.raises(ValueError):authorize(ledger)
+    # A new confirmed request is not an UNKNOWN retry candidate. The original
+    # unknown stays immutable even if a later SDK result arrives for it.
+    authorize(ledger,next_key='confirmed01')
+    ledger.reserve('confirmed01',PAYLOAD)
+    ledger.record('confirmed01',{'status':'SUCCEEDED'})
+    with pytest.raises(ValueError):authorize(ledger,prior_key='confirmed01',next_key='explicit02')
+    assert ledger.db.execute("SELECT status FROM light_commands WHERE key='previous01'").fetchone()[0]=='UNKNOWN'
 
 
 def test_new_unknowns_still_need_a_new_direct_human_authorization(ledger):

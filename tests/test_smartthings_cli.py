@@ -168,3 +168,18 @@ def test_operator_selection_rejects_extra_fields_or_exposed_file(root, tmp_path,
     chosen.chmod(0o644)
     with pytest.raises(PcError, match='PRIVATE_FILE_REQUIRED'):
         pc.controller_from_environment()
+
+
+def test_timeout_cleanup_uses_injected_runner_and_never_retries_command(root):
+    calls=[]
+    def runner(args,**kwargs):
+        calls.append(args)
+        if args[:2]==['docker','run']:
+            raise subprocess.TimeoutExpired(args,30)
+        return subprocess.CompletedProcess(args,0)
+    transport=OfficialCliTransport(BINDING,root=root,expected_sha256=digest(root),control_enabled=True,runner=runner)
+    with pytest.raises(PcError,match='CLI_TIMEOUT'):
+        transport.request('/commands',command='on')
+    assert len(calls)==2
+    assert calls[0][-3:]==['devices:commands',DEVICE,'main:switch:on']
+    assert calls[1][:3]==['docker','rm','-f']

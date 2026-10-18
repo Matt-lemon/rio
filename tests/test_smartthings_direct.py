@@ -60,11 +60,11 @@ def test_explicit_once_and_persistent_unknown_never_resends(private):
         assert db.db.execute('SELECT state FROM wake_requests WHERE target=?',(LIVING,)).fetchone()[0]=='UNKNOWN'
 
 
-def test_targets_isolated_in_persistent_ledger(private):
+def test_unmapped_other_target_conservatively_blocks_during_unknown(private):
     _,fake=private
     assert direct.from_environment('거실').set_power(True)['commands_sent']==1
-    assert direct.from_environment('주방').set_power(True)['commands_sent']==1
-    assert fake.on.call_count==2
+    assert direct.from_environment('주방').set_power(True)['commands_sent']==0
+    assert fake.on.call_count==1
 
 
 def test_already_reported_does_not_send(private):

@@ -302,6 +302,7 @@ def test_budget_is_saved_and_only_user_resume_replenishes(store, catalog):
 def test_corrupt_or_public_state_cannot_be_used(tmp_path):
     public = tmp_path/'public'
     public.mkdir(mode=0o755)
+    public.chmod(0o755)  # Explicit public fixture, independent of the test runner umask.
     with pytest.raises(ValueError):
         Store(public)
     link = tmp_path/'link'

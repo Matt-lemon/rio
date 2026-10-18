@@ -18,7 +18,14 @@ SESSION = 'd'*32
 
 
 @pytest.fixture
-def state(tmp_path):
+def state(tmp_path,monkeypatch):
+    # Test declarations must not depend on the operator's live HOME/bindings.
+    target=tmp_path/'test-lights.json'
+    target.write_text(json.dumps({'schema_version':1,'targets':{'거실':{
+        'alias':'dev_'+'a'*24,'device_type':'OnOffPluginUnitDevice','confirmed_physical_light':True}}}))
+    target.chmod(0o600)
+    monkeypatch.setenv('RIO_HOME_TARGET_FILE',str(target))
+    monkeypatch.setenv('RIO_HOME_EXECUTION_ENABLED','1')
     root = tmp_path/'private'
     root.mkdir(mode=0o700)
     store = Store(root)

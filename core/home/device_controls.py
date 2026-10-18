@@ -106,19 +106,12 @@ class DeviceControlRegistry:
         key = key or uuid.uuid4().hex
         payload = {"operation": "device_command", "alias": binding["alias"],
                    "arguments": {"device_type": binding["device_type"], "command": command}}
-        if not self.ledger.known(key):
-            self.ledger.refresh_dispatched(self.transport.result)
-        prior = self.ledger.reserve(key, payload)
-        if prior is not None:
-            return prior
-        try:
-            response = self.transport.request("/v1/commands", {
-                **payload, "idempotency_key": key, "ttl_s": 20})
-        except Exception:
-            response = {}
-        answer = HomeToolRegistry.answer(response, key)
-        self.ledger.record(key, answer)
-        return answer
+        from .dispatch_guard import dispatch_primary
+        def preflight():
+            check=self.plan(target,command)
+            return self.configuration['enabled'] and check.get('status')=='PREVIEW' and check.get('ready_for_execution') is True
+        return dispatch_primary(self,key,payload,preflight,
+            lambda:self.transport.request('/v1/commands',{**payload,'idempotency_key':key,'ttl_s':20}))
 
     def wait_result(self, answer: dict, timeout_s: float = 20) -> dict:
         """Collect the final result with bounded reads; never resend a command."""
@@ -133,7 +126,9 @@ def registry_from_environment() -> DeviceControlRegistry:
     configuration = json.loads(read_private(path)) if path.exists() else {"schema_version": 1, "enabled": False, "targets": {}}
     token = Path(os.getenv("RIO_HOME_TOKEN_FILE", str(Path.home()/"google-home-bridge/state/gateway/rio.token")))
     ledger = Path(os.getenv("RIO_HOME_LEDGER", str(Path.home()/".local/state/rio/home/example")))
-    return DeviceControlRegistry(LocalHomeTransport(token), configuration, ledger)
+    registry=DeviceControlRegistry(LocalHomeTransport(token), configuration, ledger)
+    registry.revalidate=lambda: json.loads(read_private(path))==configuration
+    return registry
 
 
 def parse_device_request(text: str) -> tuple[str, str] | None:
@@ -154,14 +149,14 @@ def parse_device_request(text: str) -> tuple[str, str] | None:
     return None
 
 
-def handle_device_command(text: str, factory=None) -> str | None:
+def handle_device_command(text: str, factory=None, *, request_key=None) -> str | None:
     request = parse_device_request(text)
     if request is None:
         return None
     registry = None
     try:
         registry = (factory or registry_from_environment)()
-        answer = registry.wait_result(registry.execute(*request))
+        answer = registry.wait_result(registry.execute(*request,key=request_key))
         message = {
             "PREVIEW": "기기 연결 준비 상태예요. 실제 제어는 아직 활성화되지 않았어요.",
             "SUCCEEDED": "기기 제어 요청은 완료됐어요. 실제 상태는 아직 확인이 필요해요.",

@@ -26,7 +26,7 @@ def sample(tmp_path, *, state='off', timestamp=None):
     return DirectLight('주방', binding, cli, tmp_path/'private'/'ledger.db', True),cli
 
 
-def test_fresh_status_after_prior_unknown_reconciles_without_write(tmp_path):
+def test_legacy_unknown_without_dispatch_time_is_preserved(tmp_path):
     device,cli=sample(tmp_path)
     with WakeLedger(device.ledger_path) as db:
         key=db.reserve(UUID)
@@ -36,11 +36,11 @@ def test_fresh_status_after_prior_unknown_reconciles_without_write(tmp_path):
         db.db.commit()
     cli.switch.return_value={'value':'on','timestamp':clock_stamp(-5)}
     observed=device.status()
-    assert observed['pending_resolved_by_fresh_status']
-    assert device.request_status(key)['result']=='OBSERVED_SWITCH'
+    assert not observed['pending_resolved_by_fresh_status']
+    assert device.request_status(key)['result']=='UNKNOWN'
     with WakeLedger(device.ledger_path) as db:
-        assert db.db.execute('SELECT state FROM wake_requests WHERE id=?',(key,)).fetchone()[0]=='OBSERVED_SWITCH_ON'
-        assert db.db.execute('SELECT original_state,reported_state FROM smartthings_observations WHERE request_id=?',(key,)).fetchone()==('UNKNOWN','on')
+        assert db.db.execute('SELECT state FROM wake_requests WHERE id=?',(key,)).fetchone()[0]=='UNKNOWN'
+        assert db.db.execute('SELECT original_state,reported_state FROM smartthings_observations WHERE request_id=?',(key,)).fetchone() is None
     cli.on.assert_not_called()
     cli.off.assert_not_called()
 
@@ -84,9 +84,9 @@ def test_exception_after_dispatch_no_repeat_and_stays_unknown(tmp_path):
 
 def test_successful_cli_process_with_fresh_change_is_observation_not_api_receipt(tmp_path):
     device,cli=sample(tmp_path,state='off',timestamp=clock_stamp(-60))
-    sequence=iter([{'value':'off','timestamp':clock_stamp(-60)},
-                   {'value':'on','timestamp':clock_stamp(1)}])
-    cli.switch.side_effect=lambda: next(sequence)
+    changed={}
+    cli.on.side_effect=lambda:changed.update(timestamp=clock_stamp())
+    cli.switch.side_effect=lambda: {'value':'on','timestamp':changed['timestamp']} if changed else {'value':'off','timestamp':clock_stamp(-60)}
     result=device.set_power(True,request_key='one-request-02')
     assert result['result']=='OBSERVED_SWITCH'
     assert result['physical_state_confirmed'] is False
@@ -127,8 +127,9 @@ def test_core_adapter_returns_typed_receipt_and_result_lookup(tmp_path, monkeypa
 def test_core_adapter_never_claims_physical_state_on_structured_observation(tmp_path,monkeypatch):
     from core.home import smartthings_direct
     device,cli=sample(tmp_path)
-    cli.switch.side_effect=[{'value':'off','timestamp':clock_stamp(-60)},
-                            {'value':'on','timestamp':clock_stamp(1)}]
+    changed={}
+    cli.on.side_effect=lambda:changed.update(timestamp=clock_stamp())
+    cli.switch.side_effect=lambda: {'value':'on','timestamp':changed['timestamp']} if changed else {'value':'off','timestamp':clock_stamp(-60)}
     monkeypatch.setattr(smartthings_direct,'from_environment',lambda target:device)
     result=Adapters(None).call('home.smartthings',{'target':'주방','action':'on'},'request-typed-02',None)
     assert result.status=='OBSERVED' and result.confirmation=='SWITCH_REPORT'

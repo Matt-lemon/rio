@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import Mock
 import json
 import sqlite3
+import hashlib
 
 import pytest
 
@@ -17,19 +18,33 @@ def setup(tmp_path, monkeypatch):
     config=tmp_path/'.config/rio'
     config.mkdir(parents=True)
     path=config/'smartthings-fallback.json'
-    data={'schema_version':1,'enabled':False,'targets':{
+    data={'schema_version':2,'enabled':False,'targets':{
         '에어컨':{'device_id':UUID,'label':'에어컨','device_type':'ZIGBEE',
                    'confirmed_same_physical_device':False,'allowed_commands':['on','off']},
         '주방':{'device_id':'12345678-1234-4234-8234-123456789abd',
                  'label':'주방','device_type':'EDGE_CHILD',
                  'confirmed_same_physical_device':False,'allowed_commands':['on','off']}
     }}
+    for index,item in enumerate(data['targets'].values(),1):
+        item['primary_alias']='dev_'+str(index)*24
+        item['identity_evidence']={'method':'operator_physical_verification','reference_sha256':'a'*64,'confirmed_at':'2026-01-01T00:00:00Z'}
     def write():
+        for target,item in data['targets'].items():
+            if 'identity_evidence' not in item:continue
+            evidence=item['identity_evidence']
+            record=json.dumps({'schema_version':1,'target':target,'primary_alias':item['primary_alias'],
+                'smartthings_device_id':item['device_id'],'method':evidence['method'],
+                'confirmed_at':evidence['confirmed_at'],'verification_basis':'operator_observed_same_device'})
+            hashed=hashlib.sha256(record.encode()).hexdigest();evidence['reference_sha256']=hashed
+            directory=config/'fallback-identity-evidence';directory.mkdir(exist_ok=True)
+            proof=directory/(hashed+'.json');proof.write_text(record);proof.chmod(0o600)
         path.write_text(json.dumps(data,ensure_ascii=False));path.chmod(0o600)
     write()
     registry=Mock()
-    registry.targets={'에어컨':{'family':'air_conditioner_power','expected_name':'에어컨','allowed_commands':['on','off']},
-                      '주방':{'alias':'dev_'+'1'*24}}
+    registry.configuration={'enabled':True}
+    registry.revalidate=lambda:True
+    registry.targets={'에어컨':{'alias':'dev_'+'1'*24,'device_type':'OnOffPluginUnitDevice','family':'air_conditioner_power','expected_name':'에어컨','allowed_commands':['on','off']},
+                      '주방':{'alias':'dev_'+'2'*24,'confirmed_physical_light':True}}
     registry.ledger_path=tmp_path/'private/commands.sqlite3'
     registry.transport.status.return_value={'available':False,'code':'GATEWAY_UNREACHABLE'}
     return data,write,registry
@@ -118,7 +133,7 @@ def test_adapter_fallback_only_before_google_light_dispatch(monkeypatch):
     from core.home import main_adapter
     primary=Mock()
     primary.allow_execution=True
-    primary.targets={'주방':{'alias':'dev_'+'1'*24}}
+    primary.targets={'주방':{'alias':'dev_'+'1'*24,'confirmed_physical_light':True}}
     primary.plan.return_value={'status':'REJECTED','code':'BRIDGE_NOT_READY'}
     monkeypatch.setattr(main_adapter,'registry_from_environment',lambda:primary)
     called=[]
@@ -154,7 +169,7 @@ def test_aircon_adapter_selects_guarded_fallback_on_bridge_outage(monkeypatch):
     from core.execution.adapters import Adapters
     from core.home import device_controls
     primary=Mock()
-    primary.targets={'에어컨':{'family':'air_conditioner_power','expected_name':'에어컨','allowed_commands':['on','off']}}
+    primary.targets={'에어컨':{'alias':'dev_'+'1'*24,'device_type':'OnOffPluginUnitDevice','family':'air_conditioner_power','expected_name':'에어컨','allowed_commands':['on','off']}}
     primary.configuration={'enabled':True}
     primary.plan.return_value={'status':'REJECTED','code':'BRIDGE_NOT_READY'}
     monkeypatch.setattr(device_controls,'registry_from_environment',lambda:primary)
@@ -171,7 +186,7 @@ def test_outage_probe_after_failed_preflight_plan(monkeypatch):
     from core.home import device_controls
     primary=Mock()
     primary.configuration={'enabled':True}
-    primary.targets={'에어컨':{'family':'air_conditioner_power','expected_name':'에어컨','allowed_commands':['on','off']}}
+    primary.targets={'에어컨':{'alias':'dev_'+'1'*24,'device_type':'OnOffPluginUnitDevice','family':'air_conditioner_power','expected_name':'에어컨','allowed_commands':['on','off']}}
     primary.plan.side_effect=ConnectionError('gateway down')
     monkeypatch.setattr(device_controls,'registry_from_environment',lambda:primary)
     invoked=[]

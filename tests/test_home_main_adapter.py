@@ -85,7 +85,7 @@ def test_light_chat_collects_terminal_failure_without_repeating_power(tmp_path,m
 
 def test_transport_invalid_path_never_reads_secret(tmp_path):
     transport=LocalHomeTransport(tmp_path/'missing-token')
-    assert transport.request('/v1/status/../../commands')['code']=='GATEWAY_UNREACHABLE'
+    assert transport.request('/v1/status/../../commands')['code']=='GATEWAY_LOCAL_OR_RESPONSE_INVALID'
 
 
 def test_private_policy_only_allows_approved_registered_aliases(tmp_path,monkeypatch):

@@ -62,8 +62,10 @@ class LocalHomeTransport:
         except urllib.error.HTTPError as error:
             # Do not include response text, credentials, device IDs or URL in errors.
             return {"http_status": error.code, "code": "GATEWAY_REJECTED"}
-        except Exception:
+        except (urllib.error.URLError,TimeoutError,ConnectionError):
             return {"code": "GATEWAY_UNREACHABLE", "available": False, "controls_enabled": False}
+        except Exception:
+            return {"code": "GATEWAY_LOCAL_OR_RESPONSE_INVALID", "available": False, "controls_enabled": False}
 
     def status(self) -> dict:
         return self.request("/v1/status")
@@ -106,6 +108,8 @@ class CommandLedger:
         self.db.execute("CREATE TABLE IF NOT EXISTS command_result_refreshes "
                         "(key TEXT NOT NULL, previous_status TEXT NOT NULL, previous_answer TEXT NOT NULL, "
                         "new_status TEXT NOT NULL, refreshed_at TEXT NOT NULL)")
+        self.db.execute('CREATE TABLE IF NOT EXISTS unknown_result_observations '
+                        '(key TEXT NOT NULL, answer TEXT NOT NULL, observed_at REAL NOT NULL)')
         self.db.execute("CREATE TABLE IF NOT EXISTS human_retry_authorizations "
                         "(next_key TEXT NOT NULL, prior_key TEXT NOT NULL, digest TEXT NOT NULL, "
                         "note TEXT NOT NULL, authorized_at TEXT NOT NULL, PRIMARY KEY(next_key,prior_key))")
@@ -136,9 +140,20 @@ class CommandLedger:
             self.db.commit()
 
     def record(self, key: str, answer: dict):
-        self.db.execute("UPDATE light_commands SET status=?,answer=? WHERE key=?",
-                        (answer["status"], json.dumps(answer), key))
-        self.db.commit()
+        # A later result lookup adds evidence without erasing UNKNOWN or its cause.
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            prior=self.db.execute('SELECT status,answer FROM light_commands WHERE key=?',(key,)).fetchone()
+            if prior and prior[0]=='UNKNOWN':
+                self.db.execute('INSERT INTO unknown_result_observations VALUES (?,?,?)',
+                                (key,json.dumps(answer),time.time()))
+            else:
+                self.db.execute("UPDATE light_commands SET status=?,answer=? WHERE key=?",
+                                (answer["status"], json.dumps(answer), key))
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
     def known(self, key: str) -> bool:
         return self.db.execute("SELECT 1 FROM light_commands WHERE key=?", (key,)).fetchone() is not None
@@ -459,18 +474,12 @@ class HomeToolRegistry:
         key = key or uuid.uuid4().hex
         binding = self.targets[args["target"]]
         payload = {"alias": binding["alias"], "on": args["on"]}
-        if not self.ledger.known(key):
-            self.ledger.refresh_dispatched(self.transport.result)
-        prior = self.ledger.reserve(key, payload)
-        if prior is not None:
-            return prior
-        try:
-            response = self.transport.set_power(binding["alias"], args["on"], key)
-        except (OSError, TimeoutError, ValueError):
-            response = {}
-        answer = self.answer(response, key)
-        self.ledger.record(key, answer)
-        return answer
+        from .dispatch_guard import dispatch_primary
+        def preflight():
+            check=self.plan(args['target'],args['on'])
+            return self.allow_execution and check.get('status')=='PREVIEW' and check.get('ready_for_execution') is True
+        return dispatch_primary(self,key,payload,preflight,
+            lambda:self.transport.set_power(binding['alias'],args['on'],key))
 
 
 def user_message(answer: dict) -> str:

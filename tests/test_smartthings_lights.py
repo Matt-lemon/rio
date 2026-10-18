@@ -59,7 +59,7 @@ def test_accepted_does_not_mean_physical_completion(tmp_path,binding):
     ctrl,transport=controller(tmp_path,binding)
     result=ctrl.set_power(True)
     assert result['result']=='ACCEPTED' and result['physical_state_confirmed'] is False
-    assert ctrl.set_power(False)['result']=='ALREADY_REPORTED'
+    assert ctrl.set_power(False)['result']=='UNKNOWN'
     transport.on.assert_called_once();transport.off.assert_not_called()
 
 

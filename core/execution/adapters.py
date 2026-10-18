@@ -154,6 +154,8 @@ class Adapters:
                 return ToolResult('REJECTED', f'SmartThings {target} 제어가 허용되지 않았어. 명령을 보내지 않았어.', raw, key, 'NONE', raw.get('code'))
             if result == 'PENDING_DO_NOT_RETRY':
                 return ToolResult('UNKNOWN',f'SmartThings {target}의 이전 명령이 미확정이야. 새 명령을 보내지 않았어.', raw, key)
+            if result == 'REJECTED':
+                return ToolResult('REJECTED',f'SmartThings {target}의 현재 정책·대상 검증을 통과하지 못해 명령을 보내지 않았어.',raw,key,'NONE',raw.get('code'))
             if raw.get('post_command_status_checked') is True:
                 switch = raw.get('post_command_switch_report')
                 reported = ('켜짐' if switch == 'on' else '꺼짐') if switch in {'on','off'} else '미확인'
@@ -242,7 +244,7 @@ class Adapters:
             else:
                 if progress:
                     progress.attempted('OPAQUE_LEGACY_BOUNDARY')
-                text = callback(args['command'])
+                text = callback(args['command'],request_key=key) if family=='home' else callback(args['command'])
             return ToolResult('UNKNOWN', (text or '기존 명령을 확인하지 못했어.') + '\n구조화된 접수·결과를 확인할 수 없어 미확정으로 보존했어. 자동 재전송하지 않을게.',
                               {'structured_outcome': False, 'lookup_supported': False}, key)
         raise ValueError('UNKNOWN_TOOL')
@@ -358,15 +360,13 @@ class Adapters:
         if name.startswith('registered.'):
             return self.registered_result(registry_request('job', request_id=key), key)
         if name == 'home.smartthings':
-            from core.home.smartthings_direct import from_environment
-            direct = from_environment(args['target'])
-            observed = direct.status()  # read-only; may reconcile a timestamp-proven transition
-            outcome = direct.request_status(key)
+            from core.home.smartthings_fallback import lookup_existing
+            outcome=lookup_existing(args['target'],key) or {'result':'UNKNOWN','commands_sent':0}
             if outcome['result'] == 'OBSERVED_SWITCH':
                 return ToolResult('OBSERVED', f'SmartThings {args["target"]} 스위치 변경을 새 보고 시각으로 확인했어. 실제 전등 상태는 별도 확인이 필요해.',
-                                  {**observed, **outcome}, key, 'SWITCH_REPORT')
+                                  outcome, key, 'SWITCH_REPORT')
             return ToolResult('UNKNOWN', 'SmartThings 보고 상태만으로 이전 명령 반영을 입증하지 못했어. 재전송하지 않아.',
-                              {**observed, **outcome}, key)
+                              outcome, key)
         if name == 'home.light' or name.startswith('home.device.'):
             # A prior Google Home outage may have selected SmartThings before
             # any primary write. Its original request must be looked up there.
