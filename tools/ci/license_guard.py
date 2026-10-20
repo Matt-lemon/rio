@@ -24,7 +24,7 @@ MEDIA_EXTENSIONS = frozenset({'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', 
 BINARY_MAGIC = (b'\x7fELF', b'MZ', b'PK\x03\x04', b'\x00asm')
 LICENSE_ALIASES = {
     'MIT LICENSE': 'MIT', 'MIT': 'MIT', 'APACHE SOFTWARE LICENSE': 'Apache-2.0',
-    'APACHE LICENSE 2.0': 'Apache-2.0', 'APACHE-2.0': 'Apache-2.0',
+    'APACHE LICENSE 2.0': 'Apache-2.0', 'APACHE 2.0': 'Apache-2.0', 'APACHE-2.0': 'Apache-2.0',
     'BSD LICENSE': 'BSD-3-Clause', 'BSD-3-CLAUSE': 'BSD-3-Clause',
     'BSD-2-CLAUSE': 'BSD-2-Clause', 'ISC LICENSE (ISCL)': 'ISC',
     'ISC LICENSE': 'ISC', 'ISC': 'ISC', 'MOZILLA PUBLIC LICENSE 2.0 (MPL 2.0)': 'MPL-2.0',
