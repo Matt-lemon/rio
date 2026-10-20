@@ -34,6 +34,7 @@ data/dubbing-input/
 services/rio-dubbing/.venv/
 services/rio-dubbing/.venv-engines/
 services/rio-dubbing/.venv-subtitle-ocr/
+services/rio-dubbing/dubbing-token
 data/dubbing-models/
 data/dubbing-repair-*/
 data/tts-gpu/

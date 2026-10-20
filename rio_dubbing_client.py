@@ -45,16 +45,22 @@ class DubbingClient:
         return value
 
     def submit(self, source_path: str, *, source_language="zh", target_language="ko",
-               mode="auto", speaker_mode="diarize", speakers=None, segments=None, background_path=None, export=None) -> dict:
+               mode="auto", speaker_mode="diarize", speaker_count=None, speakers=None, segments=None, background_path=None, export=None) -> dict:
         return self._request("POST", "/v1/jobs", {
             "source_path": source_path, "source_language": source_language,
             "target_language": target_language, "mode": mode, "speaker_mode": speaker_mode,
             "speakers": speakers or [], "segments": segments or [], "background_path": background_path,
             **({"export": export} if export is not None else {}),
+            **({"speaker_count": speaker_count} if speaker_count is not None else {}),
         })
 
     def status(self, job_id: str) -> dict:
         return self._request("GET", f"/v1/jobs/{self._id(job_id)}")
+
+    def save_edits(self, job_id: str, edits: list[dict], *, expected_revision: int) -> dict:
+        return self._request('PATCH', f'/v1/jobs/{self._id(job_id)}/segments', {
+            'expected_revision': expected_revision, 'edits': edits,
+        })
 
     def retry(self, job_id: str) -> dict:
         return self._request("POST", f"/v1/jobs/{self._id(job_id)}/retry")
@@ -151,6 +157,8 @@ def tool_definitions() -> list[dict]:
           "target_language": {"type": "string", "default": "ko"},
           "mode": {"type": "string", "enum": ["auto", "analyze"], "default": "auto"},
           "speaker_mode": {"type": "string", "enum": ["diarize", "single"], "default": "diarize"},
+          "speaker_count": {"type": "integer", "minimum": 1, "maximum": 100,
+                            "description": "Known speaker count for this job only; omit for automatic estimation."},
           "export": export_schema}, ["source_path"]),
         ("dubbing_status", "Check status. completed means rendered output; analysis_ready means transcript only; preview_ready means demo; blocked needs an engine.",
          {"job_id": {"type": "string"}}, ["job_id"]),
