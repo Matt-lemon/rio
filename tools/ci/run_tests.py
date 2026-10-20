@@ -1,6 +1,8 @@
 """Run each supported suite in its own process and dependency environment."""
 import argparse
+import os
 from pathlib import Path
+import site
 import subprocess
 import sys
 
@@ -28,7 +30,14 @@ def main():
     parser.add_argument('--suite', choices=SUITES, default='root')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
-    result = subprocess.run(command(root, args.suite), cwd=root, check=False)
+    environment = os.environ.copy()
+    # Native ownership probes intentionally launch the base Python executable.
+    # Give those children the same checkout and dependencies as their test parent.
+    paths = [root, (root / SUITES[args.suite]).parent,
+             root / 'services/rio-localization', *map(Path, site.getsitepackages())]
+    environment['PYTHONPATH'] = os.pathsep.join(dict.fromkeys(map(str, paths)))
+    result = subprocess.run(command(root, args.suite), cwd=root,
+                            env=environment, check=False)
     return result.returncode
 
 
