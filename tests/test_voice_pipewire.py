@@ -17,7 +17,15 @@ def instance():
     return item
 
 
-def test_pipewire_preserves_processed_pcm_and_waits_for_player_exit(monkeypatch):
+@pytest.fixture
+def pipewire_client(monkeypatch):
+    # Offline playback tests must not require a real PipeWire installation.
+    original_is_file = Path.is_file
+    monkeypatch.setattr(Path, 'is_file', lambda path:
+                        path == Path('/usr/bin/pw-play') or original_is_file(path))
+
+
+def test_pipewire_preserves_processed_pcm_and_waits_for_player_exit(monkeypatch, pipewire_client):
     item=instance();item._audio_queue.put(b'\x01\x00'*240)
     entered=threading.Event();release=threading.Event()
     def play(*args,**kwargs):
@@ -42,14 +50,33 @@ def test_pipewire_preserves_processed_pcm_and_waits_for_player_exit(monkeypatch)
 
 
 @pytest.mark.parametrize('failure',[subprocess.CalledProcessError(1,['pw-play']),subprocess.TimeoutExpired(['pw-play'],20)])
-def test_playback_failure_drains_queues_and_cannot_confirm_audio(monkeypatch,failure):
+def test_playback_failure_drains_queues_and_cannot_confirm_audio(monkeypatch,failure,pipewire_client):
     item=instance();item._audio_queue.put(b'\1\0'*240);item._audio_queue.put(None)
     monkeypatch.setattr(voice,'sd',None)
     monkeypatch.setattr(voice.sys,'platform','linux')
-    monkeypatch.setattr(voice.subprocess,'run',Mock(side_effect=failure))
+    playback = Mock(side_effect=failure)
+    monkeypatch.setattr(voice.subprocess,'run',playback)
     item._audio_worker()
+    playback.assert_called_once()
     assert item.audio_failed and not item.audio_succeeded
     assert item._audio_queue.unfinished_tasks==0
+
+
+def test_missing_pipewire_client_drains_queue_without_starting_a_player(monkeypatch):
+    item = instance()
+    item._audio_queue.put(b'\1\0' * 240)
+    item._audio_queue.put(None)
+    original_is_file = Path.is_file
+    monkeypatch.setattr(Path, 'is_file', lambda path:
+                        path != Path('/usr/bin/pw-play') and original_is_file(path))
+    monkeypatch.setattr(voice, 'sd', None)
+    monkeypatch.setattr(voice.sys, 'platform', 'linux')
+    playback = Mock()
+    monkeypatch.setattr(voice.subprocess, 'run', playback)
+    item._audio_worker()
+    playback.assert_not_called()
+    assert item.audio_failed and not item.audio_succeeded
+    assert item._audio_queue.unfinished_tasks == 0
 
 
 def test_missing_portaudio_import_still_allows_nas_voice_processing(monkeypatch):
