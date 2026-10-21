@@ -74,4 +74,4 @@ The release gate keeps existing core tests and the existing dependency license c
 
 The execution design references [Chat On Steroids at 6d2b98a](https://github.com/totec448-spec/chat-on-steroids/tree/6d2b98a61b2125a4bbfff744cc47dd81ea0bedc9/src/main). The Python implementation does not port its Electron/ChatGPT automation or account integration. [Provenance and credits](docs/release/v0.1-third-party-provenance.md) distinguish design references, actual upstream derivatives and dependency terms.
 
-The candidate tag is local and is not a published release. The owner selected GPL-3.0-only; external publication still requires separate approval. [Release notes](docs/release/v0.1.0-architecture-preview.md).
+Release: **v0.1.0-architecture-preview**, published as an experimental source preview under GPL-3.0-only. [Release notes](docs/release/v0.1.0-architecture-preview.md) · [GitHub release](https://github.com/Matt-lemon/rio/releases/tag/v0.1.0-architecture-preview). This release does not approve deployment or physical-device control.

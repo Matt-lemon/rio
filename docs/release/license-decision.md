@@ -26,5 +26,6 @@ version-only from or-later. The appendix's sample later-version language does
 not change Rio's explicit version-only grant. License text SHA256:
 `fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0`.
 
-This decision authorizes preparing the candidate under GPL-3.0-only. It does not
-authorize a public push, repository visibility change or release publication.
+The license selection initially authorized preparation only. The owner separately
+approved source-preview publication on 2026-10-21. Operating deployments and
+physical-device actions remain outside that approval.

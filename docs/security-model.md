@@ -19,4 +19,4 @@ The state database is not encrypted at rest by this code. Malicious local users 
 
 Browser results may provide title/URL/snippet without page content; content_read=false must not be described as reading the page. Models can still produce unsupported claims despite prompts. Memory and Gate availability flags are not authenticated facts.
 
-The public preview omits credentials, model/voice assets and operational state. Do not post a raw `.env`, token, cookie, database, personal log or original private Git bundle with an issue. The local candidate is not approved for external publication until the final history/privacy/license gate and owner publication approval are complete.
+The public preview omits credentials, model/voice assets and operational state. Do not post a raw `.env`, token, cookie, database, personal log or original private Git bundle with an issue. Publication covers the reviewed source preview only. It does not authorize deployment, new credentials, service changes or physical-device actions.

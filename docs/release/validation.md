@@ -66,5 +66,7 @@ are outside this preview validation. No dependency wheel, model, browser binary,
 container image, private DB or media is redistributed. Metadata/scanner success
 is not proof of all possible privacy or rights issues.
 
-**Status: local GPL-3.0-only technical release gate passed. External publication
-is held for final owner review and approval.**
+**Status: local GPL-3.0-only technical release gate passed. The owner approved
+source-preview publication on 2026-10-21.** The publication step additionally
+checks the GitHub-hosted CI run; a local PASS alone is not reported as a remote
+CI result. The public Actions page records that remote result.
