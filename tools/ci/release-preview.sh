@@ -18,6 +18,8 @@ python3 -m venv "$preview_tmp/core"
 py="$preview_tmp/core/bin/python"
 "$py" -m pip --disable-pip-version-check install -q -r requirements-preview.lock
 "$py" -m pip check
+# Explicit permission fixtures need the normal mask; the outer directory stays 0700.
+umask 022
 "$py" tools/ci/check_syntax.py
 "$py" tools/ci/run_tests.py
 "$py" tools/ci/run_tests.py --suite browser
