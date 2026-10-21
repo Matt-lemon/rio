@@ -1,5 +1,6 @@
 """Check reachable blobs and metadata without printing private values."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -44,7 +45,14 @@ def main():
     paths = {p.strip(b'\n').decode('utf-8', 'replace') for p in names.split(b'\0') if p.strip(b'\n')}
     findings['forbidden_paths'] = sum(bool(FORBIDDEN.search(p)) for p in paths if p)
     findings = {k: v for k, v in findings.items() if v}
-    license_pending = not (ROOT / 'LICENSE').is_file()
+    try:
+        selection = json.loads((ROOT / '.github/project-license.json').read_text())
+        digest = hashlib.sha256((ROOT / 'LICENSE').read_bytes()).hexdigest()
+        license_pending = not (selection['spdx_id'] == 'GPL-3.0-only'
+                               and selection['license_sha256'] == digest
+                               and digest == 'fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0')
+    except (OSError, ValueError, KeyError, TypeError):
+        license_pending = True
     print(json.dumps({'reachable_blobs': blobs, 'findings': findings,
                       'license_selection_pending': license_pending,
                       'mode': 'release' if args.release else 'candidate'}))

@@ -4,7 +4,7 @@
 
 The model is a replaceable **brain slot**. Rio's application code owns identity configuration, memory access, durable state, policy checks, tool contracts and execution records. Swapping a model does not grant it authority over those components.
 
-**Experimental / not production-ready.** This source preview exposes an existing implementation and an offline demonstration. It is not a ready-to-deploy home controller or a new execution framework. The project license is under review: see the [GPL-3.0 / Apache-2.0 audit](docs/release/v0.1-license-compatibility.md). No license has been selected yet.
+**Experimental / not production-ready.** This source preview exposes an existing implementation and an offline demonstration. It is not a ready-to-deploy home controller or a new execution framework. Rio original code is licensed under **GPL-3.0-only**. See [LICENSE](LICENSE), the [license decision](docs/release/license-decision.md) and the [GPL/Apache compatibility audit](docs/release/v0.1-license-compatibility.md). Third-party terms remain in force.
 
 ```mermaid
 flowchart LR
@@ -74,4 +74,4 @@ The release gate keeps existing core tests and the existing dependency license c
 
 The execution design references [Chat On Steroids at 6d2b98a](https://github.com/totec448-spec/chat-on-steroids/tree/6d2b98a61b2125a4bbfff744cc47dd81ea0bedc9/src/main). The Python implementation does not port its Electron/ChatGPT automation or account integration. [Provenance and credits](docs/release/v0.1-third-party-provenance.md) distinguish design references, actual upstream derivatives and dependency terms.
 
-The candidate tag is local and is not a published release. Final license selection and release approval are separate from passing tests. [Release notes](docs/release/v0.1.0-architecture-preview.md).
+The candidate tag is local and is not a published release. The owner selected GPL-3.0-only; external publication still requires separate approval. [Release notes](docs/release/v0.1.0-architecture-preview.md).

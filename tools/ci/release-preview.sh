@@ -48,5 +48,5 @@ if [ "$mode" = --release ]; then
   "$py" tools/ci/public_guard.py --release
 else
   "$py" tools/ci/public_guard.py
-  echo 'CANDIDATE_TECHNICAL_CHECKS_PASS; publication requires root license and owner approval.'
+  echo 'CANDIDATE_TECHNICAL_CHECKS_PASS; external publication requires owner approval.'
 fi
