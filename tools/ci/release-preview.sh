@@ -14,6 +14,7 @@ git rev-parse HEAD
 export HOME="$preview_tmp/home" PYTHONDONTWRITEBYTECODE=1 CI=true
 export RIO_HOME_EXECUTION_ENABLED=0 RIO_HOME_BACKUP_EXECUTION_ENABLED=false
 export RIO_ST_CLI_CONTROL_ENABLED=0 RIO_WEB_SEARCH_ENABLED=false
+unset RIO_TOOLS_TEST_IMAGE
 mkdir -p "$HOME"
 python3 -m venv "$preview_tmp/core"
 py="$preview_tmp/core/bin/python"

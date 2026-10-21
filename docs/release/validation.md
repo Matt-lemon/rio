@@ -1,72 +1,70 @@
-# Validation scope
+# Validation record — v0.1 Architecture Preview
 
-Reference: Linux x86_64, Python 3.12. The selected frozen implementation is the
-existing integration snapshot, not a claim that every later operational fix is
-included. New runtime production code: **0 lines**.
+Reference environment: Linux x86_64, Python 3.12. This freezes selected existing
+implementation, not all later operational fixes. New runtime production code:
+**0 lines**. The 17 existing `core/execution/*.py` modules and the dependency
+license checker are byte-for-byte unchanged from the reviewed implementation.
 
-Before history normalization, all existing root tests passed: **1125 passed,
-24 subtests passed**. The real-Core read-only/offline demonstration and existing
-SIGKILL/no-resend test passed. Final normalized fresh-clone results are recorded
-in the separate candidate validation record; these preliminary results are not
-substituted for them.
+## Executed checks — 2026-10-21
 
-The single CI sequence is `bash tools/ci/release-preview.sh --release`: fresh
-clone, isolated dependency installation, existing root/browser/Registry suites,
-real-Core offline demo, pinned Gitleaks history+working-tree scan, unchanged
-license checker, and reachable-object privacy/root-license check. A missing root
-LICENSE fails release mode. `--candidate` checks technical readiness while
-explicitly retaining the publication blocker. No external CI run is claimed
-until an actual CI result exists.
-
-Seven Registry Docker probes remain opt-in, not removed. Full dubbing, screen,
-localization and Android components are excluded from this source preview;
-their separate tests are not represented as passing or silently deselected from
-the included root suite. Windows, actual browser/model/voice, real-device actions,
-Docker isolation and deployment/account separation are not validated here.
-
-Dependency installation and downloading the pinned scanner require the network;
-the demonstrations and unit tests use local mocks and temporary private state.
-No device command, service restart, new credential or model generation is part
-of this release gate. Scanner success is detection evidence, not proof that all
-possible private information is absent. Manual scope/provenance review remains
-required.
-
-## Executed candidate results — 2026-10-21
-
-Verified source revision: `5d6d8c0d5ff53ea689950569f6a1473f0d7f0087` (the following report-only commit
-changes documentation and scope inventory, not runtime/test/checker source).
+The GPL-3.0-only release sequence completed on source revision
+`220810b2d5d8bc4f8011514267f9439612217a10`. Final report/scope changes are
+documentation; the release wrapper additionally unsets the opt-in Docker image
+variable so the preview never inherits permission to run integration containers.
+The local candidate tag identifies the final checked snapshot.
 
 | Check | Actual result |
 | --- | --- |
-| Fresh clone and isolated dependency installs | Passed, locked Core and Registry environments |
+| Fresh clone and separate locked dependency installs | Passed; no existing NAS environment reused |
 | In-memory Python compilation | 141 files passed |
-| Existing root suite, unchanged test membership | 1125 passed; 24 subtests passed |
-| Browser contract suite | 50 passed |
-| Registry suite | 63 passed; 7 Docker integration probes skipped |
-| Real-Core offline status + fresh-process same-ID lookup | Passed; no new dispatch on lookup |
+| Existing complete root suite | 1125 passed; 24 subtests passed |
+| Existing browser contract suite | 50 passed |
+| Existing Registry suite | 63 passed; 7 Docker probes explicitly skipped |
+| Real-Core offline status + fresh-process same-ID lookup | Passed; lookup made no new dispatch |
 | Existing SIGKILL/no-resend regression | Included and passed in root suite |
-| Gitleaks 8.30.1 | 69 nonempty diff commits, commit metadata and working tree: no rule findings |
-| Reachable-object privacy check | 349 blobs at tested revision; no rule findings |
-| Existing Python license checker | Core 46 / Registry 11 distributions passed; source artifacts passed |
-| Privacy-pattern positive/negative fixtures | 17 manual assertions passed |
-| Publication mode with no selected root LICENSE | Correctly failed closed |
+| Gitleaks 8.30.1 | 72 nonempty diff commits, metadata and working tree: no rule findings |
+| Reachable-object privacy check | 363 blobs at verified revision; no rule findings |
+| Unchanged Python dependency license checker | Core 46 / Registry 11 distributions passed; source artifacts passed |
+| Privacy pattern fixtures | 25 manual positive/negative assertions passed |
+| Project license fixtures | Canonical text passed; missing text, wrong SPDX and tampered text rejected |
+| Canonical owner-selected GPL-3.0-only release check | Passed |
 
-Total existing tests: **1238 passed**, plus **24 subtests**, **7 explicit skips**.
-No failed tests were deleted or deselected. An initial fresh-clone check exposed
-an inherited umask mismatch in a permission fixture (1124 pass / 1 fail); the
-release wrapper now uses the normal mask inside its private 0700 temporary parent.
-Production code and the failing test were unchanged. A subsequent complete
-fresh-clone run passed. Local raw logs remain private; no GitHub Actions run or
-external deployment has been performed.
+Total existing tests: **1238 passed**, **24 subtests**, **7 explicit skips**.
+No failed tests were removed or deselected. Full private logs and original hash
+mapping remain outside this public tree. No GitHub Actions run or deployment is
+claimed; this is an actual local execution of the same CI entry point.
 
-There are 183 included source/documentation files. The original 434-file scope
-has 270 exclusions; additions are release docs/locks/checks/example only.
-All 17 existing `core/execution/*.py` modules and `license_guard.py` are byte-for-byte
-unchanged from the reviewed implementation. Existing deployment literals are
-normalized, not newly generalized. New runtime production code is **0 lines**;
-new verification helpers/example total **170 lines**, below the 500-line stop rule.
+An initial clone check returned 1124 pass / 1 fail because umask 077 changed an
+explicit 0755 permission fixture. The wrapper now uses a normal mask inside a
+private 0700 parent; production code and that test were unchanged. A later
+privacy check mistook a relative core/home module path in the scope CSV for a
+personal absolute path. Boundary tests were added to the manual audit and the
+checker was corrected; actual absolute personal paths remain rejected. Both
+failures were corrected and full checks passed. Before owner selection, missing
+root licensing correctly blocked release mode; that blocker is now resolved.
 
-**Status: candidate technical checks passed; public release BLOCKED pending root
-license selection and final owner approval.** Metadata PASS does not clear
-embedded binary redistribution or unreviewed rights. The preview contains source,
-not dependency wheels, models, browser binaries, images, operating state or media.
+## Reproduction and limits
+
+`bash tools/ci/release-preview.sh --release` executes fresh clone → dependency
+install → existing root/browser/Registry tests → offline demo → history/metadata/
+working-tree secret scans → unchanged license checker → privacy/project-license
+checks. Downloaded Gitleaks is fixed at 8.30.1 with the publisher checksum pinned.
+Network is needed for dependency/scanner downloads; unit tests and demo use local
+mocks and temporary private state. The wrapper disables home/CLI execution and
+unsets the Docker integration opt-in. It does not start services or devices.
+
+There are **186** source/documentation files, including the project license.
+The original 434-file scope has **270** exclusions; additions are release
+documentation, locks, checks and one offline example. New verification helpers
+and example total **179 lines**, below the 500-line stop rule.
+
+Seven Registry Docker tests remain available independently; skipped is not
+passed. Full dubbing, screen, localization and Android components are excluded,
+so their separate suites are not represented as passing. Windows, real
+browser/model/voice, physical devices, Docker isolation and account deployment
+are outside this preview validation. No dependency wheel, model, browser binary,
+container image, private DB or media is redistributed. Metadata/scanner success
+is not proof of all possible privacy or rights issues.
+
+**Status: local GPL-3.0-only technical release gate passed. External publication
+is held for final owner review and approval.**

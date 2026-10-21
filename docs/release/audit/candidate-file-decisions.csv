@@ -433,6 +433,8 @@ tools/your-mom-patch/source/LulumPartsV23.cs,remove,Rio implementation / reposit
 tools/your-mom-patch/source/PerformanceGovernor.cs,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
 tools/your-mom-patch/tests/GameWhitelist.Tests.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
 web_search.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+.github/project-license.json,keep,release documentation or offline verification helper,no new runtime execution capability
+LICENSE,keep,release documentation or offline verification helper,no new runtime execution capability
 config/identity.example.yaml,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/execution-core.md,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/gate.md,keep,release documentation or offline verification helper,no new runtime execution capability
@@ -441,6 +443,7 @@ docs/model-adapter.md,keep,release documentation or offline verification helper,
 docs/release/audit/candidate-file-decisions.csv,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/release/audit/dependency-license-inventory.json,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/release/audit/upstream-license-evidence.json,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/license-decision.md,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/release/v0.1-license-compatibility.md,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/release/v0.1-private-data-audit.md,keep,release documentation or offline verification helper,no new runtime execution capability
 docs/release/v0.1-third-party-provenance.md,keep,release documentation or offline verification helper,no new runtime execution capability
