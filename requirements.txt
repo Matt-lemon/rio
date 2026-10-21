@@ -3,9 +3,11 @@ uvicorn[standard]
 httpx
 pydantic
 pydantic-settings
+jsonschema>=4.21,<5
 python-dotenv
 pyyaml
 rich
 ddgs>=9,<10
 requests
 sounddevice
+tzdata; sys_platform == "win32"

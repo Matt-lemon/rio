@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import json
+import argparse
 import os
 import re
+import sys
 from typing import Any
 
 import httpx
 from web_search import format_web_evidence, web_search
-from rio_voice import RioVoice
+from core.current_knowledge import VocabularyReferences, runtime_context, suggested_search, refresh_requested, search_forbidden, vocabulary_term, VOCAB, vocabulary_sources
+from rio_dubbing_tools import handle_dubbing_command
+from core.home.smartthings_pc import handle_pc_command
+from core.home.main_adapter import handle_home_command
+from core.spotify import handle_spotify_command
 from rio_core import (
     ROOT, IDENTITY_PATH, LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT,
     LLM_TEMPERATURE, LLM_TOP_P, LLM_TOP_K, LLM_MAX_TOKENS,
@@ -26,6 +32,7 @@ RIO_WEB_SEARCH_ENABLED = os.getenv("RIO_WEB_SEARCH_ENABLED", "true").lower() in 
 )
 RIO_WEB_SEARCH_TIMEOUT = max(1, int(os.getenv("RIO_WEB_SEARCH_TIMEOUT", "10")))
 RIO_WEB_SEARCH_RESULTS = min(5, max(1, int(os.getenv("RIO_WEB_SEARCH_RESULTS", "4"))))
+RIO_CONTEXT_TOOLS_ENABLED = os.getenv('RIO_CONTEXT_TOOLS_ENABLED','true').lower() in {'1','true','yes','on'}
 
 def get_loaded_models() -> list[dict[str, Any]]:
     try:
@@ -114,12 +121,21 @@ def choose_web_search(messages: list[dict[str, str]], user_text: str) -> str | N
     if explicit:
         return (explicit.group(1) or "").strip()[:200] or None
 
+    if search_forbidden(user_text):
+        return None
+
+    public_query = suggested_search(user_text)
+    if public_query:
+        return public_query
+
     requested_web = bool(re.search(r"검색해|검색해서|웹에서|인터넷에서", user_text))
 
     planner_messages = [
         {"role": "system", "content": (
             "너는 Rio의 web_search 호출 여부만 결정하는 라우터다. "
             "현재·최신 정보, 뉴스, 가격, 일정, 버전, 공식 출처 확인, 또는 사용자가 검색을 요구할 때만 검색한다. "
+            "낯선 신조어·유행어·밈의 뜻이나 사용 맥락이 불확실할 때도 짧은 어휘 검색어로 확인한다. "
+            "이미 제공된 최근 어휘 참고 자료가 충분하면 중복 검색하지 않는다. "
             "잡담, 창작, 코드 설명, 대화에 이미 있는 정보에는 검색하지 않는다. "
             "사용자의 개인 정보·장비·기억·화면은 웹 검색으로 확인할 수 없다. "
             "반드시 JSON 객체만 출력: {\"search\":true/false,\"query\":\"짧은 검색어\"}. "
@@ -175,8 +191,8 @@ def stream_completion(
             yield from stream_text(response.iter_lines())
 
 
-def print_status(system_prompt: str) -> None:
-    models = get_loaded_models()
+def print_status(system_prompt: str, probe_models: bool = True) -> None:
+    models = get_loaded_models() if probe_models else []
 
     print()
     print("=== Rio Clean Runtime ===")
@@ -188,8 +204,10 @@ def print_status(system_prompt: str) -> None:
         for model in models:
             model_id = model.get("id", "(unknown)")
             print(f"  - {model_id}")
-    else:
+    elif probe_models:
         print("Loaded model : 확인 실패")
+    else:
+        print("Loaded model : /status로 확인")
 
     print(
         f"Sampling     : temp={LLM_TEMPERATURE}, "
@@ -203,19 +221,52 @@ def print_status(system_prompt: str) -> None:
     print("=========================")
     print()
 
-def _run_chat(voice: RioVoice) -> None:
+def read_user_input(prompt: str = "You: ") -> str:
+    return input(prompt)
+
+
+class TextVoice:
+    """Text-only runtime has no sounddevice dependency or TTS connection."""
+
+    def feed(self, text):
+        pass
+
+    def flush(self):
+        pass
+
+    def wait(self):
+        pass
+
+
+def _run_chat(voice) -> None:
     identity = load_identity()
     system_prompt = build_system_prompt(identity)
 
     history: list[dict[str, str]] = []
+    vocabulary = VocabularyReferences()
+    from core.research_browser import BrowserConversation
+    browser_conversation = BrowserConversation()
+    from core.context_tools import ContextTools
+    context_tools = ContextTools()
 
-    print_status(system_prompt)
-    print("명령: /status /clear /system /exit")
+    def tool_turn(family,text,reply):
+        history.extend([{'role':'user','content':text},{'role':'assistant','content':reply}])
+        trim_history(history)
+        context_tools.observe_direct(family,text,reply,browser_conversation)
+    from rio_memory_context import enabled, retrieve_memory, build_memory_block
+    memory = None
+    if enabled():
+        from core.memory.nas_client import NasMemoryClient
+        memory = NasMemoryClient()
+
+    # Accept NAS-side PC requests even when the model PC is powered off.
+    print_status(system_prompt, False)
+    print("명령: /status /clear /system /pc status /pc on /pc off /home status /spotify status /dubbing help /exit")
     print()
 
     while True:
         try:
-            user_text = input("You: ").strip()
+            user_text = read_user_input().strip()
         except (EOFError, KeyboardInterrupt):
             print()
             break
@@ -242,12 +293,88 @@ def _run_chat(voice: RioVoice) -> None:
 
         if command == "/clear":
             history.clear()
+            browser_conversation.clear()
+            context_tools.clear()
             print("현재 프로세스의 대화 문맥을 초기화했어.")
             print()
             continue
 
+        defer_direct = RIO_CONTEXT_TOOLS_ENABLED and context_tools.defer_direct(user_text,history)
+        browser_reply = None if defer_direct else browser_conversation.handle(user_text)
+        if browser_reply is not None:
+            print(f'Rio: {browser_reply}\n')
+            tool_turn('browser',user_text,browser_reply)
+            continue
+
+        spotify_reply = None if defer_direct else handle_spotify_command(user_text)
+        if spotify_reply is not None:
+            print(f"Rio: {spotify_reply}\n")
+            tool_turn('spotify',user_text,spotify_reply)
+            continue
+
+        pc_reply = None if defer_direct else handle_pc_command(user_text)
+        if pc_reply is not None:
+            print(f"Rio: {pc_reply}\n")
+            tool_turn('pc',user_text,pc_reply)
+            continue
+
+        dubbing_reply = handle_dubbing_command(user_text)
+        if dubbing_reply is not None:
+            print(f"Rio: {dubbing_reply}")
+            print()
+            tool_turn('dubbing',user_text,dubbing_reply)
+            continue
+
+        home_reply = None if defer_direct else handle_home_command(user_text)
+        if home_reply is not None:
+            print(f"Rio: {home_reply}\n")
+            tool_turn('home',user_text,home_reply)
+            continue
+
+        if command == "/memory":
+            if memory is None:
+                print("Rio: 이 실행기의 메모리 검색은 꺼져 있어요.\n")
+            else:
+                try:
+                    memory.health()
+                    print("Rio: 메모리 API가 응답해요.\n")
+                except (httpx.HTTPError, ValueError, TypeError):
+                    print("Rio: 메모리 API에 연결할 수 없어요.\n")
+            continue
+
+        decision=context_tools.choose(user_text,history,browser_conversation) if RIO_CONTEXT_TOOLS_ENABLED else {'kind':'chat','planned':False}
+        if decision.get('planner_error') and os.getenv('RIO_CONTEXT_TOOLS_DEBUG')=='1':
+            print('[도구 선택 진단: '+decision['planner_error']+']',file=sys.stderr)
+        if decision['kind']=='tool' and os.getenv('RIO_CONTEXT_TOOLS_DEBUG')=='1':
+            print('[도구 선택: '+decision['name']+'; index='+str(decision['arguments'].get('index','-'))+']',file=sys.stderr)
+        if decision['kind']=='clarify':
+            reply=decision['question']
+            print(f'Rio: {reply}\n')
+            history.extend([{'role':'user','content':user_text},{'role':'assistant','content':reply}]);trim_history(history)
+            continue
+        if decision['kind']=='tool' and decision['name']!='web.search':
+            try:
+                reply=context_tools.execute(decision,browser_conversation,{
+                    'spotify':handle_spotify_command,'home':handle_home_command,
+                    'pc':handle_pc_command,'dubbing':handle_dubbing_command})
+                if not isinstance(reply,str):reply='도구 결과를 확인하지 못했어. 자동으로 다시 실행하지 않을게.'
+            except Exception:
+                reply='도구 결과를 확인하지 못했어. 자동으로 다시 실행하지 않을게.'
+            print(f'Rio: {reply}\n')
+            history.extend([{'role':'user','content':user_text},{'role':'assistant','content':reply}]);trim_history(history)
+            context_tools.remember(decision['name'],user_text,reply,decision['arguments'])
+            continue
+
+        memories = retrieve_memory(memory, user_text) if memory is not None else []
+        turn_prompt = system_prompt + '\n\n' + runtime_context()
+        vocab_context = vocabulary.context(user_text) if RIO_WEB_SEARCH_ENABLED else ''
+        if vocab_context:
+            turn_prompt += '\n\n' + vocab_context
+        if memory is not None:
+            turn_prompt += "\n\n" + build_memory_block(memories)
+
         messages = build_messages(
-            system_prompt,
+            turn_prompt,
             history,
             user_text,
         )
@@ -257,7 +384,7 @@ def _run_chat(voice: RioVoice) -> None:
 
         if RIO_GATE_ENABLED:
             try:
-                gate = call_rio_gate(user_text)
+                gate = call_rio_gate(user_text, has_memory=bool(memories))
             except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPError) as exc:
                 print(f"[Rio Gate 연결 실패] {exc}")
                 print("근거 검증기를 사용할 수 없어서 이번 요청은 처리하지 않을게.")
@@ -290,7 +417,14 @@ def _run_chat(voice: RioVoice) -> None:
                     "role": "system",
                     "content": instruction,
                 })
-        search_query = choose_web_search(messages, user_text)
+        if decision['kind']=='tool' and decision['name']=='web.search':
+            search_query=decision['arguments']['query']
+        elif decision.get('planned'):
+            search_query=None if vocab_context and not refresh_requested(user_text) else suggested_search(user_text)
+        else:
+            search_query = None if vocab_context and not refresh_requested(user_text) else choose_web_search(messages, user_text)
+        if not RIO_WEB_SEARCH_ENABLED:
+            search_query=None
         search_results = []
         if search_query:
             try:
@@ -299,6 +433,12 @@ def _run_chat(voice: RioVoice) -> None:
                     max_results=RIO_WEB_SEARCH_RESULTS,
                     timeout=RIO_WEB_SEARCH_TIMEOUT,
                 )
+                if vocabulary_term(user_text) or VOCAB.search(user_text):
+                    search_results = vocabulary_sources(search_results, user_text)
+                    term=vocabulary_term(user_text)
+                    if term and search_results:
+                        from core.public_vocabulary import enrich
+                        search_results = enrich(search_results,term)
             except Exception as exc:
                 print(f"[웹 검색 실패] {type(exc).__name__}: {exc}")
                 print("검색 결과를 확인하지 못해서 이번 요청은 답하지 않을게.")
@@ -312,6 +452,7 @@ def _run_chat(voice: RioVoice) -> None:
                 "role": "system",
                 "content": format_web_evidence(search_query, search_results),
             })
+            vocabulary.remember(user_text, search_query, search_results)
         print("Rio: ", end="", flush=True)
 
         chunks: list[str] = []
@@ -329,6 +470,15 @@ def _run_chat(voice: RioVoice) -> None:
                 print("웹 출처:")
                 for result in search_results:
                     print(f"- {result.title}: {result.url}")
+                print()
+            elif vocab_context:
+                print('어휘 참고 출처 (이전 확인 자료):')
+                seen = set()
+                for _,_,checked,results in vocabulary.recall(user_text):
+                    for result in results:
+                        if result.url not in seen:
+                            seen.add(result.url)
+                            print(f'- {result.title}: {result.url} (확인: {checked.isoformat(timespec="seconds")})')
                 print()
 
         except httpx.ConnectError:
@@ -368,7 +518,88 @@ def _run_chat(voice: RioVoice) -> None:
         trim_history(history)
 
 
-def main() -> None:
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description="Rio unified PC/NAS entry point")
+    voice_options = parser.add_mutually_exclusive_group()
+    voice_options.add_argument("--text-only", action="store_true", help="No audio device or TTS requests")
+    voice_options.add_argument("--voice", action="store_true", help="Use local audio output")
+    parser.add_argument('--core', action='store_true', help='Use the persistent execution service')
+    parser.add_argument('--legacy-core', action='store_true', help='Use the prior executor for this connection')
+    commands = parser.add_mutually_exclusive_group()
+    commands.add_argument("--dubbing", metavar="COMMAND", help="Run one explicit dubbing command, then exit")
+    commands.add_argument("--pc", metavar="COMMAND", help="Run one PC on/off/status command without loading chat or audio")
+    commands.add_argument("--home", metavar="COMMAND", help="Run one home device status or permitted control command without loading chat or audio")
+    commands.add_argument("--home-web", action="store_true", help="Open the local NAS home web console without loading chat or audio")
+    commands.add_argument('--browse',metavar='COMMAND',help='Use the dedicated public-research browser')
+    commands.add_argument("--spotify", metavar="COMMAND", help="Local Spotify play, pause or status without loading chat or audio")
+    parser.add_argument("--home-web-port", type=int, default=18445, help="Loopback home web port (default 18445)")
+    args = parser.parse_args(argv)
+    from core.execution.client import enabled as execution_enabled
+    if not args.legacy_core and (args.core or execution_enabled()) and not args.home_web:
+        from core.execution.console import run as run_core
+        command = next((prefix + value for prefix, value in (
+            ('/spotify ', args.spotify), ('/browse ', args.browse), ('/home ', args.home),
+            ('/pc ', args.pc), ('/dubbing ', args.dubbing)) if value is not None), None)
+        text_only = args.text_only or (not args.voice and (sys.platform != 'win32' or os.getenv('RIO_TEXT_ONLY', '0') == '1'))
+        try:
+            if text_only:
+                run_core(TextVoice(), read_input=read_user_input, one_shot=command)
+            else:
+                from rio_voice import RioVoice
+                with RioVoice() as voice:
+                    run_core(voice, read_input=read_user_input, one_shot=command)
+        except (OSError, ValueError):
+            print('리오 실행 코어에 연결하지 못했어요. 기존 실행기로 자동 재전송하지 않아요.')
+        return
+    if args.spotify is not None:
+        text = args.spotify.strip()
+        if not text:
+            parser.error("--spotify requires a command")
+        reply = handle_spotify_command(text)
+        if reply is None:
+            reply = handle_spotify_command("/spotify " + text)
+        print(reply)
+        return
+    if args.browse is not None:
+        from core.research_browser import handle
+        print(handle(args.browse))
+        return
+
+    if args.home_web:
+        from core.home.web_console import run_home_web
+        run_home_web(args.home_web_port)
+        return
+    if args.home is not None:
+        text = args.home.strip()
+        if not text:
+            parser.error("--home requires a command")
+        reply = handle_home_command(text)
+        if reply is None:
+            reply = handle_home_command("/home " + text)
+        print(reply)
+        return
+    if args.pc is not None:
+        text = args.pc.strip()
+        if not text:
+            parser.error("--pc requires a command")
+        reply = handle_pc_command(text)
+        if reply is None:
+            reply = handle_pc_command("/pc " + text)
+        print(reply)
+        return
+    if args.dubbing is not None:
+        text = args.dubbing.strip()
+        if not text:
+            parser.error("--dubbing requires a command")
+        reply = handle_dubbing_command(text if text.split(None, 1)[0] == "/dubbing" else "/dubbing " + text)
+        print(reply)
+        return
+    text_only = args.text_only or (not args.voice and (
+        sys.platform != "win32" or os.getenv("RIO_TEXT_ONLY", "0").lower() in {"1", "true", "yes"}))
+    if text_only:
+        _run_chat(TextVoice())
+        return
+    from rio_voice import RioVoice
     with RioVoice() as voice:
         _run_chat(voice)
 

@@ -54,32 +54,38 @@ def _tokens(text: str) -> set[str]:
     return result
 
 
+class MemoryStoreError(RuntimeError):
+    """Existing memory data could not be read safely; do not overwrite it."""
+
+
 class LongTermMemoryStore:
     def __init__(self, path: Path):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def _load(self) -> list[dict]:
-        if not self.path.exists():
-            return []
-
         try:
             data = json.loads(
                 self.path.read_text(encoding="utf-8")
             )
-        except (OSError, json.JSONDecodeError):
+        except FileNotFoundError:
             return []
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise MemoryStoreError(f"기억 파일을 읽을 수 없습니다: {self.path}") from exc
 
         if not isinstance(data, list):
-            return []
+            raise MemoryStoreError(f"기억 파일은 목록이어야 합니다: {self.path}")
 
-        return [
-            item
-            for item in data
-            if isinstance(item, dict)
-            and isinstance(item.get("id"), str)
-            and isinstance(item.get("content"), str)
-        ]
+        ids = set()
+        for item in data:
+            if (not isinstance(item, dict)
+                    or not isinstance(item.get("id"), str)
+                    or not item["id"].strip()
+                    or not isinstance(item.get("content"), str)
+                    or item["id"] in ids):
+                raise MemoryStoreError(f"잘못된 기억 항목이 있습니다: {self.path}")
+            ids.add(item["id"])
+        return data
 
     def _save(self, memories: list[dict]) -> None:
         temp = self.path.with_suffix(".tmp")
@@ -146,17 +152,20 @@ class LongTermMemoryStore:
 
     def forget(self, memory_id: str) -> bool:
         memory_id = memory_id.strip()
+        if not memory_id:
+            raise ValueError("빈 기억 ID로 삭제할 수 없습니다.")
         memories = self._load()
 
-        kept = [
-            memory
-            for memory in memories
-            if not memory["id"].startswith(memory_id)
-        ]
-
-        if len(kept) == len(memories):
+        matches = [memory for memory in memories if memory["id"] == memory_id]
+        if not matches:
+            matches = [memory for memory in memories
+                       if memory["id"].startswith(memory_id)]
+        if not matches:
             return False
+        if len(matches) != 1:
+            raise ValueError("여러 기억에 일치하는 ID입니다. 더 긴 ID를 사용하세요.")
 
+        kept = [memory for memory in memories if memory["id"] != matches[0]["id"]]
         self._save(kept)
         return True
 

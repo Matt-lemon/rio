@@ -365,6 +365,16 @@ JSON 하나만 출력:
         *,
         dry_run: bool = False,
     ) -> dict[str, Any]:
+        from core.execution.client import enabled as core_enabled, CoreClient
+        if core_enabled():
+            events = self._pending_events(self._load_state())
+            if not dry_run:
+                client = CoreClient()
+                for item in events:
+                    client.request('agency.ingest', kind=item.get('kind', 'event'),
+                                   text=item.get('text', ''), event_id=item['id'])
+            return {'forwarded_to_core': True, 'events': len(events), 'dry_run': dry_run,
+                    'action': 'noop'}
         state = self._load_state()
         events = self._pending_events(state)
         recent = self._recent_actions()
@@ -424,6 +434,10 @@ JSON 하나만 출력:
 
     def run_forever(self) -> None:
         while True:
+            from core.execution.client import enabled as core_enabled
+            if core_enabled():
+                self.run_once()
+                return
             print(
                 json.dumps(
                     self.run_once(),
@@ -451,6 +465,15 @@ def main() -> None:
         metavar=("KIND", "TEXT"),
     )
     args = parser.parse_args()
+
+    from core.execution.client import enabled, CoreClient
+    if enabled():
+        if args.event and not args.dry_run:
+            result = CoreClient().request('agency.ingest', kind=args.event[0], text=args.event[1], event_id=uuid.uuid4().hex)
+            print(json.dumps({'forwarded_to_core': True, 'id': result}, ensure_ascii=False))
+        else:
+            print('작업 관찰과 제안은 리오 실행 코어가 담당합니다. 기존 감시 루프는 시작하지 않습니다.')
+        return
 
     agent = RioAgent()
 

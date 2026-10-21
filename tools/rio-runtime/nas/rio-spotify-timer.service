@@ -1,0 +1,15 @@
+[Unit]
+Description=Rio persistent Spotify pause timer
+
+[Service]
+Type=exec
+WorkingDirectory=/home/example/rio-nas-pc-integration-20261012
+ExecStart=/usr/bin/python3 -u /home/example/rio-nas-pc-integration-20261012/tools/rio-runtime/nas/spotify-timer-worker.py
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

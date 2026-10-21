@@ -10,9 +10,11 @@ from dotenv import load_dotenv
 
 
 ROOT = Path(__file__).resolve().parent
-IDENTITY_PATH = ROOT / "config" / "identity.yaml"
 
 load_dotenv(ROOT / ".env")
+IDENTITY_PATH = Path(os.getenv("RIO_IDENTITY_PATH", str(ROOT / "config" / "identity.yaml"))).expanduser()
+if not IDENTITY_PATH.is_absolute():
+    IDENTITY_PATH = ROOT / IDENTITY_PATH
 
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:8080/v1").rstrip("/")
 LLM_MODEL = os.getenv("LLM_MODEL", "local-model")

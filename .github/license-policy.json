@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "allowed_licenses": [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "HPND",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "PSF-2.0",
+    "Python-2.0",
+    "Unlicense",
+    "Zlib"
+  ],
+  "ignored_build_tools": [
+    "pip",
+    "setuptools",
+    "wheel"
+  ],
+  "reviewed_exceptions": {
+    "colorama": {
+      "version": "0.4.6",
+      "license": "BSD-3-Clause",
+      "reason": "Reviewed bundled colorama-0.4.6.dist-info/licenses/LICENSE.txt: three BSD conditions including non-endorsement; SHA256 cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318. Legacy metadata only states BSD License."
+    }
+  },
+  "reviewed_artifacts": {},
+  "pending_human_review_assets": []
+}

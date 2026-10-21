@@ -1,0 +1,2 @@
+# Existing NAS gateway interpreter dependency; no SDK or runtime upgrade.
+websockets==15.0.1

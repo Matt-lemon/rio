@@ -27,3 +27,47 @@ data/agency/
 .local-archive/
 *.lnk
 *.before-*
+
+# Local dubbing media, caches and isolated environment
+data/dubbing/
+data/dubbing-input/
+services/rio-dubbing/.venv/
+services/rio-dubbing/.venv-engines/
+services/rio-dubbing/.venv-subtitle-ocr/
+services/rio-dubbing/dubbing-token
+data/dubbing-models/
+data/dubbing-repair-*/
+data/tts-gpu/
+data/runtime-logs/
+data/omnivoice-broker-build/
+data/video-encoder/
+
+data/localization/
+data/screen-translate/
+services/rio-screen-translate/.venv/
+
+# Isolated AntSeed identity and payment state
+.antseed-gate-eval/
+
+# Private runtime state, evaluation data and backups stay outside code commits.
+.env.*
+!.env.example
+/data/
+/logs/
+/backups/
+/private-backups/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.token
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.dump

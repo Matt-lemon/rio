@@ -1,0 +1,12 @@
+[Unit]
+Description=Rio integrated NAS conversation socket
+
+[Socket]
+ListenStream=%t/rio-main.sock
+SocketMode=0600
+Accept=yes
+MaxConnections=1
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

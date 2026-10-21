@@ -1,0 +1,23 @@
+[Unit]
+Description=Rio NAS loopback connection to the PC dubbing API
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=exec
+WorkingDirectory=%h/rio-nas-pc-integration-20261012
+ExecStart=%h/.local/share/rio-current-knowledge/venv/bin/python -u -m core.dubbing_link
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+RestartSec=60
+RestartPreventExitStatus=78
+TimeoutStopSec=8
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/rio/dubbing-link
+UMask=0077
+
+[Install]
+WantedBy=default.target
