@@ -10,6 +10,7 @@ case "$mode" in --candidate|--release) ;; *) exit 2 ;; esac
 git -c core.hooksPath=/dev/null clone --quiet --no-local --no-tags --single-branch \
   --branch "$(git branch --show-current)" "$source_root" "$preview_tmp/source"
 cd "$preview_tmp/source"
+git rev-parse HEAD
 export HOME="$preview_tmp/home" PYTHONDONTWRITEBYTECODE=1 CI=true
 export RIO_HOME_EXECUTION_ENABLED=0 RIO_HOME_BACKUP_EXECUTION_ENABLED=false
 export RIO_ST_CLI_CONTROL_ENABLED=0 RIO_WEB_SEARCH_ENABLED=false
@@ -39,6 +40,7 @@ printf '%s  %s\n' 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470
 tar -xzf "$preview_tmp/gitleaks.tar.gz" -C "$preview_tmp" gitleaks
 "$preview_tmp/gitleaks" git . --log-opts='--all --full-history' \
   --redact --ignore-gitleaks-allow --no-banner
+git log --all --format=fuller | "$preview_tmp/gitleaks" stdin --redact --ignore-gitleaks-allow --no-banner
 "$preview_tmp/gitleaks" dir . --redact --ignore-gitleaks-allow --no-banner
 "$py" tools/ci/license_guard.py
 "$tpy" tools/ci/license_guard.py --deps-only

@@ -39,7 +39,9 @@ def main():
         for name, rule in RULES.items():
             if rule.search(body):
                 findings[name] = findings.get(name, 0) + 1
-    paths = [line.partition(b' ')[2].decode('utf-8', 'replace') for line in objects]
+    # Name-only object walks may omit a second path reusing the same blob.
+    names = git('log', '--all', '--format=', '--name-only', '--no-renames', '-z')
+    paths = {p.strip(b'\n').decode('utf-8', 'replace') for p in names.split(b'\0') if p.strip(b'\n')}
     findings['forbidden_paths'] = sum(bool(FORBIDDEN.search(p)) for p in paths if p)
     findings = {k: v for k, v in findings.items() if v}
     license_pending = not (ROOT / 'LICENSE').is_file()
