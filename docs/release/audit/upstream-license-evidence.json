@@ -1,0 +1,20 @@
+[
+  {
+    "repository": "totec448-spec/chat-on-steroids",
+    "reference": "6d2b98a61b2125a4bbfff744cc47dd81ea0bedc9",
+    "license": "MIT",
+    "license_sha256": "4e179d05b8808d9b19fd6f6f7a22f5912410c13aefb01f19e569afe8cf6d2fbe"
+  },
+  {
+    "repository": "deedy5/primp",
+    "reference": "v2.0.1",
+    "license": "MIT",
+    "license_sha256": "64f0fdb426abd21f75b48e2ff93b9976b8c374bab3538af33d3c6d3f7c7efae7"
+  },
+  {
+    "repository": "ServeurpersoCom/omnivoice.cpp",
+    "reference": "ed603581b2a9bf18fc055ca5de5d4a48960db01a",
+    "license": "MIT",
+    "license_sha256": "cddbecd5db98ec5bd44af3e7221b6d44c3e9fed1c92940a3be5b0080c9b86475"
+  }
+]
