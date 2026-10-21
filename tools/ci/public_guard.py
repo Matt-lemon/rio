@@ -8,7 +8,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 RULES = {
-    'personal_home': re.compile(rb'/' + rb'home/(?!example(?:/|\b)|operator(?:/|\b)|rio(?:/|\b))[^/\s\x00"\x27<>]+'),
+    'personal_home': re.compile(rb'(?<![A-Za-z0-9_./-])/' + rb'home/(?!example(?:/|\b)|operator(?:/|\b)|rio(?:/|\b))[^/\s\x00"\x27<>]+'),
     'personal_windows_home': re.compile(rb'(?i)[A-Z]:[\\/]+Users[\\/]+(?!example\b|operator\b)[^\\/\s"\x27]+'),
 }
 FORBIDDEN = re.compile(r'(^|/)(?:\.env(?:\.(?!example$)[^/]+)?|data|logs|diagnostics|node_modules)(/|$)|\.(?:gguf|onnx|wav|mp3|sqlite3?|db|dump|pem|key|token)$')
