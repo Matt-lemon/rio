@@ -1,453 +1,454 @@
 path,decision,provenance,reason
-.env.example,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-.github/license-policy.json,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-.github/workflows/ci.yml,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-.gitignore,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-AGENTS.md,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-AI.bat,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-README.md,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-benchmarks/glitter_retest.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-benchmarks/prompts/rio_strong_frame.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-benchmarks/prompts/rio_strong_frame_legacy.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-config/agency.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-config/identity.nas.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-config/identity.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-conftest.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/browser_transport.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/browser_url.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/context_tools.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/current_knowledge.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/dubbing_link.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/execution/__init__.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/adapters.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/bridge.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/builtins.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/catalog.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/client.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/console.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/engine.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/isolated.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/isolation_audit.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/peers.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/planner.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/proactive.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/runner.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/service.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/store.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/execution/types.py,keep,Rio Python implementation; design reference,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example/app.js,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example/index.html,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example/style.css,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/home/example implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/memory/__init__.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/memory/long_term.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/memory/manager.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/memory/nas_client.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/memory/session.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/memory/shadow.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/public_vocabulary.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/research_browser.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/spotify.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/spotify_timer.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/tools/__init__.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/tools/client.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/tools/contracts.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/tools/main_adapter.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/tools/session.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-core/tools/verification.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-docs/INDEX.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/architecture.md,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-docs/ci-and-licenses.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/clm-review-candidate-2026-09-26.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/current-state.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/diarization-three-speakers-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/dolphin3.0-llama3.1-8b-abliterated-q8-main-candidate-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/glitter_retest.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/google-home-api-compliance-rules.md,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-docs/hardware.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/lfm2.5-2.6b-q3.8-tbrilliance-neo-max-q8_0-rio-eval-2026-09-25.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/lfm2.5-8b-a1b-benchmark-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/lfm2.5-8b-a1b-persona-eval-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/llm-server.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/luthor-8b-eval-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/main-pc-integration-preparation.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/minicpm5-2b-q4_k_m-rio-eval-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/model-evaluation-summary.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/muse-glimmer-30b-research-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/omnivoice-rocm-10.1-2026-10-07.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/omnivoice-windows-rocm-2026-09-28.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/qwen3.8-27b-evaluation-2026-09-20.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/qwen3.8-27b-tturbo-fable-fusion-iq2m-eval-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/qwen3.8-flash-next-uncensored-iq3_xxs-strata-rio-eval-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rhea-4b-fast-0409-high-q8_0-eval-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-architecture-plan-change-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-browser-url-review-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-cloud-inputs-2026-10-12.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-core-account-separation-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-2026-10-01.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-audio-glossary-validation-2026-10-05.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-auto-validation-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-localization-and-gpu-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-resident-validation-2026-10-03.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-speech-repair-2026-10-05.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-subtitle-review-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-tools-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-upload-validation-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-validation-2026-10-01.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-validation-2026-10-02-windows.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-video-export-2026-10-05.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-dubbing-worker-health-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-execution-core-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-execution-core-safety-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-fallback-gateway-ci-integration-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-foreman-milestones-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-goal-completion-audit-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-google-home-gateway-deployment-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-google-home-gateway-fix-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-home-agent-checkpoint-2026-09-19.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-llm-priority-validation-2026-10-03.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-model-benchmark-checkpoint-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-nas-gpt-release-handoff-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-nas-llm-q6-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-nas-pc-dubbing-contract-2026-10-12.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-nas-pc-integration-2026-10-12.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-nas-vulkan-tts-trial-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-operational-readiness-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-runtime-checkpoint-2026-09-23.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-screen-translate-smoke-2026-10-06.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-screen-translate-smoke-2026-10-06.png,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-screen-translate-validation-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-cli-natural-validation-2026-10-15.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-cli-oauth-integration-review-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-cli-result-and-fallback-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-direct-lights-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-fallback-followup-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-fallback-independent-audit-plan-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-smartthings-fallback-independent-audit-report-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-tts-checkpoint-2026-09-23.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-tts-omnivoice-checkpoint-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/rio-voice-live-validation-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/roadmap.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/setup-windows.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/swift-qwen3.8-27b-kv-ab-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/swift-qwen3.8-27b-persona-eval-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/tts-voice-stack-experiments-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/ubuntu-bitperfect-audio-research-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/validation/rio-llm-priority-2026-10-03.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-docs/your-mom-game-compatibility-checkpoint-2026-10-03.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/AndroidManifest.xml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/Bridge.kt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/LightBindingPolicy.kt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/LightBindingPolicyTest.kt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/LightSetup.kt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/build.gradle.kts,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/android-v10/candidate-manifest.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-integrations/google_home/nas/gateway.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-integrations/google_home/nas/requirements.txt,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-logs/2026-09-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-main.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-nas_main.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-requirements.txt,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_agent.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_chat_test.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_core.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_dubbing_auth.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_dubbing_client.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_dubbing_tools.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_memory_context.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-rio_voice.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-browser-research/README.md,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-browser-research/rio_browser_research/__init__.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-browser-research/rio_browser_research/service.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-browser-research/tests/test_scope.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-dubbing/.env.example,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/asr-review-validation-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/background-residual-review-20261014.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/code-review-2026-10-09.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/ffmpeg-unification-2026-10-09.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/full-audio-export-validation-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/guest-account-glossary-20261014.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/intro-alignment-validation-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/maintenance.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/nickname-caption-guard-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/ocr-openvino-adoption-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/ocr-v4-v6-comparison-2026-10-08.csv,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/ocr-v4-v6-comparison-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/qc-pronunciation-20261014.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/recovery-validation-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/review-bulk-caption-support-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/reviewed-voice-reference-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/speaker-only-reanalysis-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/subtitle-localization-validation-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/docs/tts-onset-investigation-2026-10-09.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/examples/analyze-job.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/examples/coa-final-subtitle-glossary-zh-ko.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/examples/coa-guest-account-job-overrides-zh-ko.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/examples/demo-job.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/CMakeLists.txt,remove,Rio build/test glue,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/LICENSE.omnivoice,remove,MIT upstream derivative,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/README.md,remove,Rio build/test glue,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/baseline-sha256.json,remove,Rio build/test glue,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/build_broker.py,remove,Rio build/test glue,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/resident-batch.patch,remove,MIT upstream derivative,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/test-broker-contract.cpp,remove,Rio build/test glue,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/native/tts-server.cpp,remove,MIT upstream derivative,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/requirements-dev.txt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/requirements-engines-cpu.txt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/requirements-subtitle-ocr.txt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/requirements.txt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/__init__.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/__main__.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/api.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/asr_review.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/asr_selection.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/asr_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/cloud_inputs.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/diarization.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/engine_runner.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/engines.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/gpu_coordination.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/llm_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/media.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/models.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/native_process.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/pipeline.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/providers.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/recovery.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/review.html,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/review_frame.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/settings.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/speech_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/startup_glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/store.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/subtitle_ocr.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/subtitle_ocr_openvino.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/subtitle_reference.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/synthesis.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/translation.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/tts_broker.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/tts_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/tts_service.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/tts_text.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/uploads.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/video_export.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/rio_dubbing/worker.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/setup-engines.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/start-analysis.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/start-auto.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/conftest.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_analysis.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_asr_alignment_review.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_asr_cache.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_asr_review.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_asr_selection.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_asr_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_auto_pipeline.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_bulk_edits.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_client.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_cloud_client.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_cloud_inputs.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_diarization.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_diarizer_adapter.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_dubbing.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_engine_process.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_engines.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_gpu_coordination.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_llm_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_localization_api.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_nas_pc_contract.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_native_process.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_ocr_benchmark.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_recovery.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_reference_review_policy.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_review_api.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_rio_voice_text.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_shared_localization.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_speaker_reanalysis.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_speech_classification.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_speech_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_speech_variation.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_startup_glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_store_connections.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_subtitle_ocr.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_subtitle_ocr_openvino.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_subtitle_reference.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_synthesis.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_tool_commands.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_translation.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_tts_broker.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_tts_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_tts_service.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_tts_text.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_uploads.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_video_export.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tests/test_worker_health.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tools/benchmark_llm_priority.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tools/benchmark_subtitle_ocr.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-dubbing/tools/gpu_memory_sampler.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-gate/gate.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-gate/rio-gate.service,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-localization/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/pyproject.toml,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/__init__.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/cache.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/models.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/seed-zh-ko.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/translation.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-localization/rio_localization/types.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/requirements.txt,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/__init__.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/__main__.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/app.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/capture.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/native.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/tracking.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/rio_screen_translate/vision.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/start.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/tests/conftest.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/tests/test_tracking.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/tests/windows_fixture.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-screen-translate/tests/windows_smoke.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-services/rio-tools/README.md,sanitize,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/launch_validation.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/requirements.txt,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/__init__.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/adapters.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/builder.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/builtins.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/executor.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/legacy_setup.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/registry.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/service.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/srt.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/rio_tools/validator.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/runtime/Dockerfile,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/runtime/worker.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/conftest.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_adapters.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_admin.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_builder.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_docker_integration.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_main_adapter.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_registry.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_service.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-services/rio-tools/tests/test_verification.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_browser_direct_url_core.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_browser_transport.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_ci_license_guard.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_context_tools.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_core_account_upgrade.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_current_knowledge.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_dubbing_auth.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_dubbing_link.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_adapters.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_console.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_core.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_install.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_ipc.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_isolation.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_execution_safety.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_fallback_independent_audit.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_fallback_writer_transition.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_device_catalog.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_device_controls.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_gateway_contract.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_main_adapter.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_power_retry.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_tools.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_home_web_console.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_long_term_memory.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_memory_shadow.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_research_browser.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_smartthings_cli.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_smartthings_direct.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_smartthings_fallback.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_smartthings_lights.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_smartthings_pc.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_smartthings_result_reconciliation.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_spotify.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_spotify_timer.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_unified_main.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tests/test_voice_pipewire.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/audit_fallback_gateway.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/audit_fallback_precheck_race.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/audit_fallback_pytest.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/ci/Install-Ffmpeg.ps1,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/ci/check_ffmpeg.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/ci/check_syntax.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/ci/license_guard.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/ci/requirements-screen-test.txt,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/ci/run_tests.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/legacy/patch_personality.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/Start-RioGateway.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/Start-RioNasDubbing.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/Start-RioNasDubbingTunnel.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/Start-RioServers.cmd,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/Start-RioServers.local.psd1.example,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/Start-RioServers.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/nas-dubbing.env.example,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/rio-runtime/nas/rio-browser-direct.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-browser-profile.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-core-accounts.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-core-install.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-dubbing-pc-link.service,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-execution-core.service,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-home-gateway-candidate.conf,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-home-gateway-stage.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-main-client.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-main.socket,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-main@.service,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-spotify-timer.service,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-tools-registry.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/rio-tools-registry.service,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/rio-runtime/nas/spotify-timer-worker.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/run_glitter_retest.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-tools/your-mom-patch/.gitignore,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/Build-InGame.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/Install-InGame.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/README-한국어.md,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/Restore-LastBuild.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/model/model-schema.json,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/source/Build-Assets.py,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/source/Build-Code.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/source/GameModeWatcher.cs,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/source/GameWhitelist.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/source/LulumPartsV23.cs,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/source/PerformanceGovernor.cs,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-tools/your-mom-patch/tests/GameWhitelist.Tests.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; preserved only in private archive
-web_search.py,keep,Rio implementation / repository provenance,existing source/test/interface; example literals normalized where needed
-config/identity.example.yaml,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/execution-core.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/gate.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/memory.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/model-adapter.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/audit/candidate-file-decisions.csv,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/audit/dependency-license-inventory.json,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/audit/upstream-license-evidence.json,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/v0.1-license-compatibility.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/v0.1-private-data-audit.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/v0.1-third-party-provenance.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/v0.1.0-architecture-preview.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/release/validation.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-docs/security-model.md,keep,new release documentation or offline verification helper,no new runtime execution capability
-examples/offline_demo.py,keep,new release documentation or offline verification helper,no new runtime execution capability
-requirements-preview.lock,keep,new release documentation or offline verification helper,no new runtime execution capability
-tools/ci/public_guard.py,keep,new release documentation or offline verification helper,no new runtime execution capability
-tools/ci/release-preview.sh,keep,new release documentation or offline verification helper,no new runtime execution capability
+.env.example,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+.github/license-policy.json,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+.github/workflows/ci.yml,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+.gitignore,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+AGENTS.md,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+AI.bat,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+README.md,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+benchmarks/glitter_retest.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+benchmarks/prompts/rio_strong_frame.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+benchmarks/prompts/rio_strong_frame_legacy.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+config/agency.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+config/identity.nas.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+config/identity.yaml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+conftest.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/browser_transport.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/browser_url.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/context_tools.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/current_knowledge.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/dubbing_link.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/__init__.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/adapters.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/bridge.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/builtins.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/catalog.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/client.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/console.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/engine.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/isolated.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/isolation_audit.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/peers.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/planner.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/proactive.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/runner.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/service.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/store.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/execution/types.py,keep,Rio Python implementation; design reference,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/__init__.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/chat.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/device_catalog.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/device_controls.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/dispatch_guard.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/main_adapter.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/smartthings_cli.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/smartthings_direct.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/smartthings_fallback.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/smartthings_lights.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/smartthings_pc.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/tools.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/web/app.js,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/web/index.html,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/web/style.css,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/home/web_console.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/memory/__init__.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/memory/long_term.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/memory/manager.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/memory/nas_client.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/memory/session.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/memory/shadow.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/public_vocabulary.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/research_browser.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/spotify.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/spotify_timer.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/tools/__init__.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/tools/client.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/tools/contracts.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/tools/main_adapter.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/tools/session.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+core/tools/verification.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+docs/INDEX.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/architecture.md,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+docs/ci-and-licenses.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/clm-review-candidate-2026-09-26.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/current-state.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/diarization-three-speakers-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/dolphin3.0-llama3.1-8b-abliterated-q8-main-candidate-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/glitter_retest.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/google-home-api-compliance-rules.md,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+docs/hardware.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/lfm2.5-2.6b-q3.8-tbrilliance-neo-max-q8_0-rio-eval-2026-09-25.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/lfm2.5-8b-a1b-benchmark-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/lfm2.5-8b-a1b-persona-eval-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/llm-server.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/luthor-8b-eval-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/main-pc-integration-preparation.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/minicpm5-2b-q4_k_m-rio-eval-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/model-evaluation-summary.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/muse-glimmer-30b-research-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/omnivoice-rocm-10.1-2026-10-07.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/omnivoice-windows-rocm-2026-09-28.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/qwen3.8-27b-evaluation-2026-09-20.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/qwen3.8-27b-tturbo-fable-fusion-iq2m-eval-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/qwen3.8-flash-next-uncensored-iq3_xxs-strata-rio-eval-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rhea-4b-fast-0409-high-q8_0-eval-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-architecture-plan-change-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-browser-url-review-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-cloud-inputs-2026-10-12.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-core-account-separation-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-2026-10-01.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-audio-glossary-validation-2026-10-05.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-auto-validation-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-localization-and-gpu-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-resident-validation-2026-10-03.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-speech-repair-2026-10-05.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-subtitle-review-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-tools-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-upload-validation-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-validation-2026-10-01.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-validation-2026-10-02-windows.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-video-export-2026-10-05.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-dubbing-worker-health-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-execution-core-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-execution-core-safety-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-fallback-gateway-ci-integration-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-foreman-milestones-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-goal-completion-audit-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-google-home-gateway-deployment-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-google-home-gateway-fix-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-home-agent-checkpoint-2026-09-19.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-llm-priority-validation-2026-10-03.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-model-benchmark-checkpoint-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-nas-gpt-release-handoff-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-nas-llm-q6-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-nas-pc-dubbing-contract-2026-10-12.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-nas-pc-integration-2026-10-12.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-nas-vulkan-tts-trial-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-operational-readiness-2026-10-16.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-runtime-checkpoint-2026-09-23.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-screen-translate-smoke-2026-10-06.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-screen-translate-smoke-2026-10-06.png,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-screen-translate-validation-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-cli-natural-validation-2026-10-15.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-cli-oauth-integration-review-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-cli-result-and-fallback-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-direct-lights-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-fallback-followup-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-fallback-independent-audit-plan-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-smartthings-fallback-independent-audit-report-2026-10-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-tts-checkpoint-2026-09-23.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-tts-omnivoice-checkpoint-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/rio-voice-live-validation-2026-10-17.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/roadmap.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/setup-windows.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/swift-qwen3.8-27b-kv-ab-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/swift-qwen3.8-27b-persona-eval-2026-09-21.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/tts-voice-stack-experiments-2026-09-22.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/ubuntu-bitperfect-audio-research-2026-10-02.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/validation/rio-llm-priority-2026-10-03.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+docs/your-mom-game-compatibility-checkpoint-2026-10-03.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/AndroidManifest.xml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/Bridge.kt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/LightBindingPolicy.kt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/LightBindingPolicyTest.kt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/LightSetup.kt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/build.gradle.kts,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/android-v10/candidate-manifest.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+integrations/google_home/nas/gateway.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+integrations/google_home/nas/requirements.txt,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+logs/2026-09-18.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+main.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+nas_main.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+requirements.txt,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_agent.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_chat_test.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_core.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_dubbing_auth.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_dubbing_client.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_dubbing_tools.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_memory_context.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+rio_voice.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-browser-research/README.md,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-browser-research/rio_browser_research/__init__.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-browser-research/rio_browser_research/service.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-browser-research/tests/test_scope.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-dubbing/.env.example,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/asr-review-validation-2026-10-06.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/background-residual-review-20261014.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/code-review-2026-10-09.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/ffmpeg-unification-2026-10-09.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/full-audio-export-validation-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/guest-account-glossary-20261014.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/intro-alignment-validation-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/maintenance.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/nickname-caption-guard-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/ocr-openvino-adoption-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/ocr-v4-v6-comparison-2026-10-08.csv,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/ocr-v4-v6-comparison-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/qc-pronunciation-20261014.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/recovery-validation-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/review-bulk-caption-support-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/reviewed-voice-reference-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/speaker-only-reanalysis-20261013.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/subtitle-localization-validation-2026-10-08.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/docs/tts-onset-investigation-2026-10-09.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/examples/analyze-job.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/examples/coa-final-subtitle-glossary-zh-ko.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/examples/coa-guest-account-job-overrides-zh-ko.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/examples/demo-job.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/native/CMakeLists.txt,remove,Rio build/test glue,outside minimal source preview; private original retained
+services/rio-dubbing/native/LICENSE.omnivoice,remove,MIT upstream derivative,outside minimal source preview; private original retained
+services/rio-dubbing/native/README.md,remove,Rio build/test glue,outside minimal source preview; private original retained
+services/rio-dubbing/native/baseline-sha256.json,remove,Rio build/test glue,outside minimal source preview; private original retained
+services/rio-dubbing/native/build_broker.py,remove,Rio build/test glue,outside minimal source preview; private original retained
+services/rio-dubbing/native/resident-batch.patch,remove,MIT upstream derivative,outside minimal source preview; private original retained
+services/rio-dubbing/native/test-broker-contract.cpp,remove,Rio build/test glue,outside minimal source preview; private original retained
+services/rio-dubbing/native/tts-server.cpp,remove,MIT upstream derivative,outside minimal source preview; private original retained
+services/rio-dubbing/requirements-dev.txt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/requirements-engines-cpu.txt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/requirements-subtitle-ocr.txt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/requirements.txt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/__init__.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/__main__.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/api.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/asr_review.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/asr_selection.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/asr_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/cloud_inputs.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/diarization.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/engine_runner.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/engines.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/gpu_coordination.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/llm_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/media.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/models.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/native_process.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/pipeline.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/providers.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/recovery.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/review.html,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/review_frame.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/settings.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/speech_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/startup_glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/store.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/subtitle_ocr.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/subtitle_ocr_openvino.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/subtitle_reference.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/synthesis.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/translation.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/tts_broker.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/tts_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/tts_service.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/tts_text.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/uploads.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/video_export.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/rio_dubbing/worker.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/setup-engines.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/start-analysis.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/start-auto.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/conftest.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_analysis.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_asr_alignment_review.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_asr_cache.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_asr_review.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_asr_selection.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_asr_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_auto_pipeline.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_bulk_edits.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_client.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_cloud_client.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_cloud_inputs.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_diarization.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_diarizer_adapter.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_dubbing.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_engine_process.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_engines.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_gpu_coordination.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_llm_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_localization_api.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_nas_pc_contract.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_native_process.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_ocr_benchmark.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_recovery.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_reference_review_policy.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_review_api.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_rio_voice_text.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_shared_localization.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_speaker_reanalysis.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_speech_classification.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_speech_timing.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_speech_variation.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_startup_glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_store_connections.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_subtitle_ocr.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_subtitle_ocr_openvino.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_subtitle_reference.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_synthesis.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_tool_commands.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_translation.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_tts_broker.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_tts_gateway.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_tts_service.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_tts_text.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_uploads.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_video_export.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tests/test_worker_health.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tools/benchmark_llm_priority.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tools/benchmark_subtitle_ocr.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-dubbing/tools/gpu_memory_sampler.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-gate/gate.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-gate/rio-gate.service,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-localization/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/pyproject.toml,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/__init__.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/cache.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/glossary.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/models.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/seed-zh-ko.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/translation.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-localization/rio_localization/types.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/README.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/requirements.txt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/__init__.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/__main__.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/app.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/capture.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/native.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/tracking.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/rio_screen_translate/vision.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/start.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/tests/conftest.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/tests/test_tracking.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/tests/windows_fixture.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-screen-translate/tests/windows_smoke.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+services/rio-tools/README.md,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/launch_validation.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/requirements.txt,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/__init__.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/adapters.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/builder.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/builtins.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/executor.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/legacy_setup.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/registry.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/service.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/srt.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/rio_tools/validator.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/runtime/Dockerfile,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/runtime/worker.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/conftest.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_adapters.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_admin.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_builder.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_docker_integration.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_main_adapter.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_registry.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_service.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+services/rio-tools/tests/test_verification.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_browser_direct_url_core.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_browser_transport.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_ci_license_guard.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_context_tools.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_core_account_upgrade.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_current_knowledge.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_dubbing_auth.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_dubbing_link.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_adapters.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_console.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_core.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_install.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_ipc.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_isolation.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_execution_safety.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_fallback_independent_audit.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_fallback_writer_transition.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_device_catalog.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_device_controls.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_gateway_contract.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_main_adapter.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_power_retry.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_tools.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_home_web_console.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_long_term_memory.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_memory_shadow.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_research_browser.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_smartthings_cli.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_smartthings_direct.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_smartthings_fallback.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_smartthings_lights.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_smartthings_pc.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_smartthings_result_reconciliation.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_spotify.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_spotify_timer.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_unified_main.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tests/test_voice_pipewire.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/audit_fallback_gateway.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/audit_fallback_precheck_race.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/audit_fallback_pytest.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/ci/Install-Ffmpeg.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/ci/check_ffmpeg.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/ci/check_syntax.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/ci/license_guard.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/ci/requirements-screen-test.txt,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/ci/run_tests.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/legacy/patch_personality.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/Start-RioGateway.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/Start-RioNasDubbing.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/Start-RioNasDubbingTunnel.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/Start-RioServers.cmd,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/Start-RioServers.local.psd1.example,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/Start-RioServers.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/nas-dubbing.env.example,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/rio-runtime/nas/rio-browser-direct.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-browser-profile.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-core-accounts.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-core-install.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-dubbing-pc-link.service,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-execution-core.service,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-home-gateway-candidate.conf,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-home-gateway-stage.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-main-client.py,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-main.socket,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-main@.service,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-spotify-timer.service,sanitize,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-tools-registry.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/rio-tools-registry.service,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/rio-runtime/nas/spotify-timer-worker.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+tools/run_glitter_retest.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/.gitignore,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/Build-InGame.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/Install-InGame.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/README-한국어.md,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/Restore-LastBuild.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/model/model-schema.json,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/source/Build-Assets.py,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/source/Build-Code.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/source/GameModeWatcher.cs,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/source/GameWhitelist.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/source/LulumPartsV23.cs,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/source/PerformanceGovernor.cs,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+tools/your-mom-patch/tests/GameWhitelist.Tests.ps1,remove,Rio implementation / repository provenance,outside minimal source preview; private original retained
+web_search.py,keep,Rio implementation / repository provenance,selected existing source/test/interface; literal-only privacy edits where marked
+config/identity.example.yaml,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/execution-core.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/gate.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/memory.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/model-adapter.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/audit/candidate-file-decisions.csv,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/audit/dependency-license-inventory.json,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/audit/upstream-license-evidence.json,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/v0.1-license-compatibility.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/v0.1-private-data-audit.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/v0.1-third-party-provenance.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/v0.1.0-architecture-preview.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/release/validation.md,keep,release documentation or offline verification helper,no new runtime execution capability
+docs/security-model.md,keep,release documentation or offline verification helper,no new runtime execution capability
+examples/offline_demo.py,keep,release documentation or offline verification helper,no new runtime execution capability
+requirements-preview.lock,keep,release documentation or offline verification helper,no new runtime execution capability
+services/rio-tools/requirements-preview.lock,keep,release documentation or offline verification helper,no new runtime execution capability
+tools/ci/public_guard.py,keep,release documentation or offline verification helper,no new runtime execution capability
+tools/ci/release-preview.sh,keep,release documentation or offline verification helper,no new runtime execution capability
