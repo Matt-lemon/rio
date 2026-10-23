@@ -18,9 +18,27 @@ and an exact-version dependency metadata review plus its negative regression.
   PLY metadata rejection was resolved by exact-version notice review, not a
   generic BSD allowlist change.
 
-Additional offline/fresh-clone/full release results are recorded below only
-once actually executed; the 2026-10-21 results are historical and not new passes.
+- With the container network disconnected, `nix build --offline --rebuild`
+  rebuilt all three checks: 68 tests, dependency-license check and demo passed.
+  The checked outputs matched their prior builds. The documented offline check
+  script and app also completed. This tests this closure after fetching its inputs,
+  not arbitrary future rebuilds without a cache.
+- A fresh public source archive in a second empty container executed the new
+  GitHub job's recipe: all Nix checks and app passed. Its initial staging attempt
+  failed because a capability-dropped container could not read the host-owned
+  0700 temporary archive. The recipe now makes only that credential-free archive
+  readable before mounting it read-only; no host HOME or credential permission changed.
+- Existing full fresh-clone release gate: **1126 root + 50 browser + 63 Registry =
+  1239 passed**, **24 subtests**, **7 explicit Docker skips**. The additional
+  license-review negative test accounts for the +1 versus the historical release.
+  The 68-test Nix subset overlaps this full suite and must not be added to it.
+- Python syntax, history/metadata/working-tree Gitleaks scans and unchanged
+  license checker passed: full pip Core 46 / Registry 11 distributions. The
+  public history/path/project-license guard passed with no findings.
+
 Remote GitHub Actions and operating-service activation are not claimed here.
+The 2026-10-21 release record remains historical. Full raw test logs and the
+local test environment receipt are kept outside the public source tree.
 
 ## Corrected failures
 

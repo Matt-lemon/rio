@@ -17,6 +17,8 @@ jobs:
           stage=$(mktemp -d)
           trap 'rm -rf "$stage"' EXIT
           git archive HEAD | tar -x -C "$stage"
+          # Only this public, credential-free archive becomes container-readable.
+          chmod -R a+rX "$stage"
           # This container is the CI boundary. No Docker socket, credentials,
           # devices, host HOME or service sockets are mounted into it.
           # The nested Nix build sandbox is disabled only in this container.
