@@ -68,6 +68,16 @@ def test_review_exceptions_are_version_and_reason_scoped():
     assert len(errors)==1
 
 
+def test_ply_notice_review_does_not_accept_other_versions_or_ambiguous_bsd():
+    p=policy()
+    errors,inventory=guard.guard_dependencies(p,[fake_dist('ply','3.11',license_field='BSD')])
+    assert errors==[] and inventory[0]['licenses']==['BSD-3-Clause']
+    for dist in (fake_dist('ply','3.12',license_field='BSD'),
+                 fake_dist('unreviewed','3.11',license_field='BSD')):
+        errors,_=guard.guard_dependencies(p,[dist])
+        assert len(errors)==1
+
+
 def test_binary_bundles_require_explicit_source_license_notice(tmp_path):
     subprocess.run(['git','init','-q',str(tmp_path)],check=True)
     (tmp_path/'weights.gguf').write_bytes(b'GGUF\x01')

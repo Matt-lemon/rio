@@ -1,5 +1,9 @@
 # Validation record — v0.1 Architecture Preview
 
+This is the historical 2026-10-21 release record. The later optional environment
+extension has its own [validation record](reproducible-renewal-validation.md);
+its checks do not retroactively change these release counts or integration claims.
+
 Reference environment: Linux x86_64, Python 3.12. This freezes selected existing
 implementation, not all later operational fixes. New runtime production code:
 **0 lines**. The 17 existing `core/execution/*.py` modules and the dependency

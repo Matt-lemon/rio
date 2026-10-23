@@ -26,6 +26,11 @@
       "version": "0.4.6",
       "license": "BSD-3-Clause",
       "reason": "Reviewed bundled colorama-0.4.6.dist-info/licenses/LICENSE.txt: three BSD conditions including non-endorsement; SHA256 cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318. Legacy metadata only states BSD License."
+    },
+    "ply": {
+      "version": "3.11",
+      "license": "BSD-3-Clause",
+      "reason": "Reviewed BSD three-clause notice in installed Nix PLY 3.11 ply/lex.py (including non-endorsement), SHA256 6da6d12129c801fcc7a3b5aa2d8176a86092687d1bb4cf1ddf3b601da2b7480d. Exact-version metadata clarification only; see docs/release/nix-license-audit.md."
     }
   },
   "reviewed_artifacts": {},

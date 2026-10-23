@@ -1,0 +1,28 @@
+name: Pinned Core environment
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  nix-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check a clean source archive in a disposable Nix container
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage=$(mktemp -d)
+          trap 'rm -rf "$stage"' EXIT
+          git archive HEAD | tar -x -C "$stage"
+          # This container is the CI boundary. No Docker socket, credentials,
+          # devices, host HOME or service sockets are mounted into it.
+          # The nested Nix build sandbox is disabled only in this container.
+          docker run --rm --cpus 2 --memory 4g --pids-limit 256 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --mount "type=bind,src=$stage,dst=/source,readonly" --workdir /work \
+            -e $'NIX_CONFIG=experimental-features = nix-command flakes\nsandbox = false\nbuild-users-group =\nmax-jobs = 1\ncores = 2' \
+            nixos/nix@sha256:f9823365cb4dbd4f1c056957d94e415b5bae73dfee33cf4da84c98a2f4ce9577 \
+            sh -eu -c 'cp -R /source/. /work/; bash tools/ci/nix-preview.sh'

@@ -1,0 +1,174 @@
+{
+  "dependencies": [
+    {
+      "name": "anyio",
+      "version": "4.13.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.1.4",
+      "licenses": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.7",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "licenses": [
+        "BSD-3-Clause"
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "licenses": [
+        "BSD-3-Clause"
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.15",
+      "licenses": [
+        "BSD-3-Clause"
+      ]
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "jsonpath-ng",
+      "version": "1.7.0",
+      "licenses": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.1",
+      "licenses": [
+        "Apache-2.0",
+        "BSD-2-Clause"
+      ]
+    },
+    {
+      "name": "pluggy",
+      "version": "1.6.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "ply",
+      "version": "3.11",
+      "licenses": [
+        "BSD-3-Clause"
+      ]
+    },
+    {
+      "name": "Pygments",
+      "version": "2.20.0",
+      "licenses": [
+        "BSD-2-Clause"
+      ]
+    },
+    {
+      "name": "pytest",
+      "version": "9.0.3",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.2",
+      "licenses": [
+        "BSD-3-Clause"
+      ]
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.33.1",
+      "licenses": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "name": "rpds-py",
+      "version": "0.30.0",
+      "licenses": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.15.0",
+      "licenses": [
+        "PSF-2.0"
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.7.0",
+      "licenses": [
+        "MIT"
+      ]
+    }
+  ],
+  "errors": []
+}
