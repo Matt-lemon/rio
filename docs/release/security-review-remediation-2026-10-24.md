@@ -7,6 +7,10 @@ or a certification of the private V20 bridge or physical devices.
 The original [security audit](security-audit-2026-10-24.md) remains unchanged
 as a record of findings. This document records follow-up actions separately.
 
+The HOLD below records the status at `b936062`. The later
+[completion record](security-completion-2026-10-24.md) supersedes the Nix/test
+hold for the four scoped audit findings, while retaining the deployment limits.
+
 ## Security audit follow-up
 
 | Finding | Implemented mitigation | Verification / remaining limitation |
