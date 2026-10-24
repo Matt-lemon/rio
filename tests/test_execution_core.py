@@ -1,5 +1,6 @@
 """Behavioral core tests. No real browser, model, music or device writes."""
 import json
+from types import SimpleNamespace
 import os
 from pathlib import Path
 import threading
@@ -433,6 +434,50 @@ def test_repeated_invalid_plan_stops_after_one_correction(store, catalog):
     assert store.task(item['id'])['state'] == 'WAITING_INPUT'
     assert planner.call_count == 2
     assert len(task.adapters.sent) == 1
+
+
+@pytest.mark.parametrize('corrected', [{'kind': 'done'},
+    {'kind': 'tool', 'name': 'browser.open_result', 'arguments': {'index': 1}}])
+def test_web_snippets_cannot_be_used_as_browser_result_numbers(store, catalog, corrected):
+    invalid = {'kind': 'tool', 'name': 'browser.open_result', 'arguments': {'index': 1}}
+    planner = Mock(side_effect=[invalid, corrected])
+    task = engine(store, catalog, planner=planner,
+                  selector=lambda _: {'kind': 'tool', 'name': 'web.search', 'arguments': {'query': 'definition'}})
+    item = task.submit(SESSION, '용어를 자료로 확인해 설명해줘')
+    task.run(item['id'])
+    assert [c[0] for c in task.adapters.sent] == ['web.search']
+    assert len(store.calls(item['id'])) == 1
+    assert planner.call_count == 2
+    assert planner.call_args.args[0]['validation_feedback']['code'] == 'BROWSER_RESULTS_REQUIRED'
+    assert not {'browser.open_result', 'browser.back_results'} & {t['name'] for t in planner.call_args.args[0]['tools']}
+    assert 'browser.open_url' not in {t['name'] for t in planner.call_args.args[0]['tools']}
+    assert store.task(item['id'])['state'] == ('COMPLETED' if corrected['kind'] == 'done' else 'WAITING_INPUT')
+    if corrected['kind'] != 'done':
+        assert 'observed web.search' in store.task(item['id'])['answer']
+        assert '본문을 읽은 것은 아니야' in store.task(item['id'])['answer']
+
+
+def test_browser_index_must_exist_even_when_other_browser_results_exist():
+    browser = SimpleNamespace(results=[{'index': 1}])
+    assert Task.browser_step_valid('browser.open_result', {'index': 1}, browser)
+    assert not Task.browser_step_valid('browser.open_result', {'index': 2}, browser)
+    assert not Task.browser_step_valid('browser.back_results', {}, SimpleNamespace(results=[]))
+
+
+@pytest.mark.parametrize('already_cited', [False, True])
+def test_search_answer_retains_an_actual_source_url(already_cited):
+    url = 'https://example.org/definition'
+    result = ToolResult('OBSERVED', 'source excerpt',
+                        {'results': [{'title': 'Definition', 'url': url, 'snippet': 'definition'}],
+                         'content_read': False}, confirmation='SEARCH_SNIPPETS').public()
+    message = '근거에 따른 설명' + (' ' + url if already_cited else '')
+    answer = Task.grounded_message('뜻과 출처를 알려줘', [result], message)
+    assert answer.count(url) == 1
+
+
+def test_unavailable_search_does_not_gain_a_source_label():
+    result = ToolResult('UNAVAILABLE', 'not verified', {'results': []}).public()
+    assert Task.grounded_message('정의를 알려줘', [result], '확인하지 못했어') == '확인하지 못했어'
 
 
 @pytest.mark.parametrize('corrected', [{'kind': 'done'}, {'kind': 'tool', 'name': 'web.search', 'arguments': {'query': '자료'}}])

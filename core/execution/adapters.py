@@ -113,12 +113,28 @@ class Adapters:
                               format_reply(raw), evidence, key, 'NAVIGATION' if raw.get('ok') else 'NONE')
         if name == 'web.search':
             from dataclasses import asdict
-            from web_search import web_search
-            rows = [asdict(r) for r in web_search(args['query'], max_results=4, timeout=10)]
+            try:
+                from web_search import web_search
+                rows = [asdict(r) for r in web_search(args['query'], max_results=4, timeout=10)]
+            except ImportError:
+                return ToolResult('UNAVAILABLE',
+                                  '웹 검색 실행 환경의 필수 패키지를 불러오지 못했어. '
+                                  '이번 요청의 사실이나 최신 수치는 확인하지 못했어.',
+                                  {'results': [], 'content_read': False}, key,
+                                  code='SEARCH_DEPENDENCY_UNAVAILABLE')
+            except Exception:
+                # Raw provider exceptions can contain URLs or credentials.
+                # Read failure is not an uncertain physical command receipt.
+                return ToolResult('UNAVAILABLE',
+                                  '웹 검색 공급자의 응답을 확인하지 못했어. '
+                                  '확인된 자료가 없어 뜻이나 최신 수치를 추측해 답하지 않을게.',
+                                  {'results': [], 'content_read': False}, key,
+                                  code='SEARCH_PROVIDER_UNAVAILABLE')
             message = '검색 요약문 기준 자료야.\n' + '\n'.join(
                 r['title'] + '\n' + r['snippet'] + '\n' + r['url'] for r in rows) if rows else '검색 결과를 확인하지 못했어.'
             return ToolResult('OBSERVED' if rows else 'UNAVAILABLE', message,
-                              {'results': rows, 'content_read': False}, key, 'SEARCH_SNIPPETS' if rows else 'NONE')
+                              {'results': rows, 'content_read': False}, key, 'SEARCH_SNIPPETS' if rows else 'NONE',
+                              None if rows else 'SEARCH_NO_RESULTS')
         if name == 'spotify.control':
             from core.spotify import SpotifyController
             controller = SpotifyController()

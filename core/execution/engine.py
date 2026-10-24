@@ -1,6 +1,8 @@
 """Single-lane goal execution, independent of a connected terminal."""
 from __future__ import annotations
 
+from core.browser_url import requested_url, public_url
+
 import json
 import re
 import threading
@@ -175,7 +177,18 @@ class Task:
                 r.get('confirmation') in {'PHYSICAL_OBSERVATION', 'HUMAN_CONFIRMED'} for r in results):
             if re.search(r'실제.*(?:켜졌|꺼졌|작동.*확인|동작.*확인)', message):
                 return '\n'.join(r['message'] for r in results[-2:]) + '\nSDK 응답이며 실제 기기 상태는 별도 확인이 필요해.'
+        sources = [row for r in results if r.get('confirmation') == 'SEARCH_SNIPPETS'
+                   for row in r.get('evidence', {}).get('results', []) if row.get('url')]
+        if sources and not any(row['url'] in message for row in sources):
+            message += '\n\n검색 요약 출처:\n' + '\n'.join(row['url'] for row in sources[:2])
         return message
+
+    @staticmethod
+    def browser_step_valid(name, arguments, browser):
+        if name not in {'browser.open_result', 'browser.back_results'}:
+            return True
+        return bool(browser.results) and (name != 'browser.open_result' or
+               arguments.get('index') in {r['index'] for r in browser.results})
 
     def run(self, ident):
         with self.gate:
@@ -212,9 +225,17 @@ class Task:
                 elif task['direct']:
                     decision = {'kind': 'done'}
                 else:
+                    planning_tools = self.catalog.list(planner=True)
+                    if not browser.results:
+                        planning_tools = [t for t in planning_tools if t['name'] not in
+                                          {'browser.open_result', 'browser.back_results'}]
+                    authorized_url = (request[len('/browse url '):].strip()
+                                      if request.startswith('/browse url ') else requested_url(request))
+                    if not public_url(authorized_url):
+                        planning_tools = [t for t in planning_tools if t['name'] != 'browser.open_url']
                     payload = {'original_request': task['request'], 'current_user': request,
                                'completion_condition': task['completion'],
-                               'tools': self.catalog.list(planner=True),
+                               'tools': planning_tools,
                                'results': [{'name': c['name'], 'arguments': c['args'], 'result': c['result']} for c in calls],
                                'browser_results': [{'index': r['index'], 'title': r['title']} for r in browser.results]}
                     decision = self.planner(payload)
@@ -227,14 +248,17 @@ class Task:
                                         'proposed_name': safe_text(decision.get('name', ''), 100),
                                         'argument_names': sorted(str(k)[:80] for k in decision.get('arguments', {}))
                                             if isinstance(decision.get('arguments'), dict) else [],
-                                        'allowed_tools': [t['name'] for t in self.catalog.list(planner=True)]}
+                                        'allowed_tools': [t['name'] for t in planning_tools]}
                             expected = self.catalog.describe(decision.get('name'))
                             if expected:
                                 feedback['expected_arguments'] = list(expected['parameters'].get('properties', {}))
+                        if feedback is None and not self.browser_step_valid(decision['name'], decision['arguments'], browser):
+                            feedback = {'code': 'BROWSER_RESULTS_REQUIRED',
+                                        'instruction': 'web.search snippets are not numbered browser.search results. Use existing evidence and choose done if sufficient; otherwise choose an available necessary tool or clarify.'}
                         if feedback is None and any(c['name'] == decision.get('name') and c['args'] == decision.get('arguments') for c in this_revision):
                             feedback = {'code': 'STEP_ALREADY_RECORDED',
                                         'proposed_name': safe_text(decision.get('name', ''), 100),
-                                        'instruction': 'Use the recorded result. Choose done if the goal is fulfilled, a different necessary step, or clarify. Never repeat the call.'}
+                                        'instruction': '이미 기록된 결과를 사용한다. 질문의 답과 출처가 확보됐으면 {"kind":"done"}으로 최종 답변 단계로 간다. 같은 호출은 반복하지 않는다. 추가로 필요한 동작만 선택하거나 clarify한다.'}
                         if feedback is not None:
                             self.store.event(session, ident, 'PLAN_REJECTED', feedback, claim=task)
                             current = self.store.task(ident)
@@ -282,9 +306,10 @@ class Task:
                     return
                 name, args = decision['name'], decision['arguments']
                 tool = self.catalog.check(name, args)
+                if not self.browser_step_valid(name, args, browser):
+                    raise ValueError('BROWSER_RESULTS_REQUIRED')
                 effect = self.catalog.effect(tool, args)
                 if name == 'browser.open_url':
-                    from core.browser_url import requested_url, public_url
                     requested = (request[len('/browse url '):].strip()
                                  if request.startswith('/browse url ') else requested_url(request))
                     if not public_url(args['url']) or requested != args['url']:
@@ -329,7 +354,14 @@ class Task:
                 return
             code = str(error) if isinstance(error, ValueError) and re.fullmatch('[A-Z_]{1,80}', str(error)) else 'EXECUTION_OR_MODEL_UNAVAILABLE'
             self.store.event(session, ident, 'EXECUTION_BLOCKED', {'error_type': type(error).__name__, 'code': code}, claim=task)
-            self.finish(task, 'WAITING_INPUT', '다음 단계나 응답을 확정하지 못해 진행 내용을 저장했어. 도구를 자동으로 재전송하지 않을게.')
+            message = '다음 단계나 응답을 확정하지 못해 진행 내용을 저장했어. 도구를 자동으로 재전송하지 않을게.'
+            if code in {'BROWSER_RESULTS_REQUIRED', 'UNREQUESTED_URL'}:
+                searches = [c['result'] for c in self.store.calls(ident) if c['name'] == 'web.search'
+                            and c['id'].startswith(prefix) and c['result']
+                            and ToolResult.restore(c['result']).completed]
+                if searches:
+                    message += '\n\n이미 확인한 검색 요약은 남길게. 본문을 읽은 것은 아니야.\n' + searches[-1]['message']
+            self.finish(task, 'WAITING_INPUT', message)
         finally:
             current = self.store.task(ident)
             # Never charge an old planner's elapsed time to a newer correction.
