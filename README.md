@@ -1,8 +1,21 @@
-# Rio — v0.1 Architecture Preview
+# Rio
 
 **Rio is the system, not the LLM.**
 
 The model is a replaceable **brain slot**. Rio's application code owns identity configuration, memory access, durable state, policy checks, tool contracts and execution records. Swapping a model does not grant it authority over those components.
+
+Rio is designed to remain a consistent local assistant as models, hardware and
+integrations change. Identity, personality, memory and transient state have
+separate responsibilities. Optional acceleration and individual adapters can
+fail without becoming the owner of Rio's identity or execution history.
+
+The next development direction is **reproducible operation**: describe the
+environment, inspect changes, verify them independently and retain a way back.
+This branch adds an optional Nix environment around the existing Core; it does
+not replace the executor or claim to reproduce an entire personal deployment.
+
+[개발 철학](docs/philosophy.md) · [Reproducible environment](docs/reproducibility.md)
+· [Contributing](CONTRIBUTING.md)
 
 **Experimental / not production-ready.** This source preview exposes an existing implementation and an offline demonstration. It is not a ready-to-deploy home controller or a new execution framework. Rio original code is licensed under **GPL-3.0-only**. See [LICENSE](LICENSE), the [license decision](docs/release/license-decision.md) and the [GPL/Apache compatibility audit](docs/release/v0.1-license-compatibility.md). Third-party terms remain in force.
 
@@ -40,6 +53,27 @@ python -m pytest -q tests/test_execution_ipc.py::test_actual_process_death_retai
 ```
 
 This tests SIGKILL/recovery and no second dispatch in the mock backend. It does not demonstrate physical-device control or a global exactly-once guarantee.
+
+## Optional pinned Nix environment
+
+On `x86_64-linux` with Nix installed:
+
+```sh
+nix --extra-experimental-features 'nix-command flakes' run --no-update-lock-file .
+nix --extra-experimental-features 'nix-command flakes' flake check --no-update-lock-file
+```
+
+The committed `flake.lock` pins Nixpkgs and its content hash. The default app runs
+the same offline demo above. Checks reuse existing execution/safety/crash tests
+and the existing dependency license checker. Initial dependency downloads need
+network access; the demo and tests use no external service. The Nix closure is a
+separate minimal Core environment, not a replacement for `requirements-preview.lock`
+or the full release gate. See [scope, verification and limitations](docs/reproducibility.md).
+
+Environment rollback and data recovery have different rules: an older executable
+must never silently restore an older memory database or erase an uncertain
+command. Service migration, database compatibility and restoration are separate
+operator-reviewed steps; no automatic deployment/rollback manager is added here.
 
 ## What is implemented
 
