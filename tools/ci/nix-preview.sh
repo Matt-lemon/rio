@@ -10,3 +10,6 @@ nix --extra-experimental-features 'nix-command flakes' \
   flake check --no-update-lock-file "${mode[@]}" "$source_root"
 nix --extra-experimental-features 'nix-command flakes' \
   run --no-update-lock-file "${mode[@]}" "$source_root"
+nix --extra-experimental-features 'nix-command flakes' \
+  develop --no-update-lock-file "${mode[@]}" "$source_root" \
+  --command python "$source_root/tools/ci/nix_security.py"

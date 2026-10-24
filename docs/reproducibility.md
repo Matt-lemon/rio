@@ -8,8 +8,14 @@ Read [the philosophy](philosophy.md) and [validation record](release/reproducibl
 ## What is pinned
 
 `flake.lock` records Nixpkgs revision
-`da6dc0e7b26060f2f71ce3ef7088fb56ee44fa36` and its NAR content hash.
-That revision selects Python 3.12 and the minimal Core/test dependencies.
+`670a258a0d0c227a30dc267343af7881f640b6e6` and its NAR content hash.
+That revision selects Python 3.12 and the minimal Core/test dependencies, with
+source-hash-pinned certifi/urllib3 security overrides. Cargo's cache is confined
+to its build directory; upstream dependency tests remain enabled as configured
+by Nixpkgs. Version floors and the effective CA bundle have an offline check.
+The development shell explicitly selects the reviewed CA bundle for certifi,
+stdlib TLS and Requests instead of inheriting an older invoking-shell bundle.
+Custom trust overrides fall outside this validation.
 The flake rejects unfree Nixpkgs packages. The default app invokes the existing
 `examples/offline_demo.py`; no alternate Core implementation is supplied.
 
@@ -59,7 +65,10 @@ bash tools/ci/release-preview.sh --release
 ```
 
 Nix checks supplement its complete root/browser/Registry tests and history,
-privacy and license scans; they do not replace them.
+privacy and license scans; they do not replace them. The release gate also
+queries OSV for the public lock/inventory versions and fails on advisories or
+an incomplete/unavailable response. This network check is separate from the
+offline Nix checks and does not scan the native/container closure.
 
 ## Sources, secrets and state
 
@@ -96,6 +105,11 @@ and only a read-only public source archive mounted. Its nested Nix build sandbox
 is disabled because the container is the CI boundary. This is not a claim that
 same-user Nix processes are a general-purpose security sandbox. Native Nix users
 run the commands above without this container-only sandbox override.
+
+The container explicitly keeps ports below 1024 privileged. Docker's default
+unprivileged-port setting otherwise invalidates an upstream Curio negative test
+and starts a server instead of raising the expected permission error. No upstream
+test is removed to work around this; the capability-free environment is corrected.
 
 Google/SmartThings services, Google Play updates, browser sessions, GPU drivers
 and hardware/firmware remain external. Pinning local code cannot freeze them or

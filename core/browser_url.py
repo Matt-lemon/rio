@@ -4,7 +4,6 @@ This is an application-level URL filter, not a DNS or browser-wide sandbox.
 """
 from __future__ import annotations
 
-import ipaddress
 import re
 from urllib.parse import parse_qsl, urlparse
 
@@ -36,7 +35,16 @@ def public_url(value):
         if (parsed.scheme != 'https' or parsed.username or parsed.password or
                 parsed.port not in (None, 443) or not host or host.endswith('.')):
             return False
-        if '.' not in host or host.endswith(('.local', '.localhost', '.internal')):
+        # WHATWG URL parsers accept numeric shorthand (127.1), octal/hex IPv4,
+        # encoded DNS labels and Unicode full stops that urllib.parse does not
+        # canonicalize. Never let a browser interpret a different authority.
+        # Browser research only needs ordinary ASCII DNS names, not IP literals.
+        if ('%' in parsed.netloc or not host.isascii() or
+                not re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+'
+                                 r'[a-z]{2,63}', host) or
+                len(host) > 253):
+            return False
+        if host.endswith(('.local', '.localhost', '.internal')):
             return False
         if host in {'home.google.com', 'accounts.google.com',
                     'my.smartthings.com', 'account.samsung.com'}:
@@ -49,10 +57,7 @@ def public_url(value):
             return False
         if parsed.fragment and SENSITIVE_KEYS.match(parsed.fragment.split('=', 1)[0]):
             return False
-        try:
-            return ipaddress.ip_address(host).is_global
-        except ValueError:
-            return True
+        return True
     except (TypeError, ValueError):
         return False
 

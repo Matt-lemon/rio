@@ -24,7 +24,7 @@ Nix 2.34.9 is a separately executed build tool; its LGPL-2.1-or-later terms
 remain its own: https://github.com/NixOS/nix/blob/2.34.9/COPYING . The official
 manual identifies that license: https://nix.dev/manual/nix/2.34/introduction.html .
 Nixpkgs package recipes at the pinned revision have their own MIT notice:
-https://github.com/NixOS/nixpkgs/blob/da6dc0e7b26060f2f71ce3ef7088fb56ee44fa36/COPYING .
+https://github.com/NixOS/nixpkgs/blob/670a258a0d0c227a30dc267343af7881f640b6e6/COPYING .
 That does not make the individual packaged programs MIT, nor relicense Rio.
 
 CI references the official `nixos/nix:2.34.9` linux/amd64 image by digest
@@ -50,6 +50,16 @@ No PLY code or notice was removed or relicensed; PLY is downloaded separately as
 an environment dependency. Its own notices remain applicable.
 
 ## Limits
+
+The inventory now records the rebuilt 2026-10-24 security environment: 24 Python
+distributions and no dependency-license errors. The updated Nixpkgs MIT notice
+was inspected (COPYING SHA256
+`c9cf0650a6820b589f96a92060e0eb937102b808f48cd5e3f35dcba449ea0a41`).
+Security overrides retain the fetched upstream sources and their notices;
+unpacking/cache fixes do not change their licenses. The exact-version PLY
+exception and the license-checker implementation/allowlist remain unchanged.
+See [security completion](security-completion-2026-10-24.md) for validation and
+[the earlier follow-up](security-review-remediation-2026-10-24.md) for history.
 
 Python metadata checks do not inspect every native dependency, attest all source
 ownership or constitute a full binary SBOM. No portable binary bundle/image is

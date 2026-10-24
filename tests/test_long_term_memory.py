@@ -1,11 +1,27 @@
 import hashlib
 import json
+import multiprocessing
+import os
+import signal
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from core.memory.long_term import LongTermMemoryStore, MemoryStoreError
+
+
+def _concurrent_memory_writer(path, prefix, count):
+    store = LongTermMemoryStore(Path(path))
+    for index in range(count):
+        store.remember(f'{prefix}: {index}')
+
+
+def _crash_before_atomic_replace(path):
+    store = LongTermMemoryStore(Path(path))
+    with patch('core.memory.long_term.os.replace',
+               side_effect=lambda *_: os.kill(os.getpid(), signal.SIGKILL)):
+        store.remember('crashing write')
 
 
 class LongTermMemorySafetyTests(unittest.TestCase):
@@ -95,6 +111,55 @@ class LongTermMemorySafetyTests(unittest.TestCase):
         self.assertEqual(0, store.count())
         store.remember("first fact")
         self.assertEqual(1, store.count())
+
+    def test_concurrent_process_writes_preserve_every_unique_record(self):
+        ctx = multiprocessing.get_context('fork')
+        children = [ctx.Process(target=_concurrent_memory_writer,
+                                args=(str(self.path), f'writer{n}', 35))
+                    for n in range(3)]
+        for child in children:
+            child.start()
+        for child in children:
+            child.join(timeout=20)
+            if child.is_alive():
+                child.terminate()
+                child.join()
+            self.assertEqual(child.exitcode, 0)
+        contents = self.store.all()
+        self.assertEqual(3 + 3 * 35, len(contents))
+        self.assertEqual(len(contents), len({row['id'] for row in contents}))
+        self.assertEqual(0o600, self.path.stat().st_mode & 0o777)
+
+    def test_leftover_partial_temp_does_not_corrupt_committed_memory(self):
+        original = self.digest()
+        partial = self.path.parent / ('.' + self.path.name + '.crashed.tmp')
+        partial.write_text('{"incomplete":', encoding='utf-8')
+        self.assertEqual(original, self.digest())
+        self.store.remember('safe after crash')
+        self.assertEqual(4, self.store.count())
+        self.assertEqual(json.loads(self.path.read_text())[-1]['content'],
+                         'safe after crash')
+
+    def test_sigkill_before_replace_preserves_last_complete_file(self):
+        original = self.digest()
+        ctx = multiprocessing.get_context('fork')
+        child = ctx.Process(target=_crash_before_atomic_replace,
+                            args=(str(self.path),))
+        child.start()
+        child.join(timeout=8)
+        if child.is_alive():
+            child.terminate()
+            child.join()
+        self.assertEqual(-signal.SIGKILL, child.exitcode)
+        self.assertEqual(original, self.digest())
+        self.store.remember('next safe write')
+        self.assertEqual(4, self.store.count())
+
+    def test_writes_and_lock_files_use_private_permissions(self):
+        self.store.remember('secure')
+        lock = self.path.with_name(self.path.name + '.lock')
+        self.assertEqual(0o600, os.stat(lock).st_mode & 0o777)
+        self.assertEqual(0o600, os.stat(self.path).st_mode & 0o777)
 
 
 if __name__ == "__main__":
