@@ -13,7 +13,7 @@ def test_preview_wheel_locks_require_artifact_hashes():
         reqs = [line for line in lines if line.strip() and not line.startswith('#')]
         assert reqs
         assert all(re.fullmatch(r'[A-Za-z0-9_.-]+==[A-Za-z0-9_.+-]+ '
-                                r'--hash=sha256:[0-9a-f]{64}', line) for line in reqs)
+                                r'(?:--hash=sha256:[0-9a-f]{64})(?: --hash=sha256:[0-9a-f]{64})?', line) for line in reqs)
     runner = (ROOT / 'tools/ci/release-preview.sh').read_text()
     assert runner.count('--require-hashes --only-binary=:all:') == 2
 
