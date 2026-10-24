@@ -12,6 +12,29 @@
       # security bump to this preview's Python interpreter, never the host.
       python = pkgs.python312.override {
         packageOverrides = self: super: {
+          # Cargo otherwise writes its registry under /homeless-shelter when
+          # this indirect dependency is rebuilt by the single-user CI image.
+          # Keep the cache in this derivation, retaining upstream tests/purity.
+          cryptography = super.cryptography.overridePythonAttrs (old: {
+            preUnpack = (old.preUnpack or "") + ''
+              export CARGO_HOME="$TMPDIR/cargo-home"
+              mkdir -p "$CARGO_HOME"
+            '';
+          });
+          # Another PyPI sdist preserves the publisher's uid in its tarball.
+          # Extract content without requesting ownership capabilities in CI.
+          sphinx-rtd-theme = super.sphinx-rtd-theme.overridePythonAttrs (_: {
+            unpackCmd = "tar --no-same-owner --no-same-permissions -xf $curSrc";
+          });
+          typeguard = super.typeguard.overridePythonAttrs (_: {
+            unpackCmd = "tar --no-same-owner --no-same-permissions -xf $curSrc";
+          });
+          ipython = super.ipython.overridePythonAttrs (_: {
+            unpackCmd = "tar --no-same-owner --no-same-permissions -xf $curSrc";
+          });
+          httpbin = super.httpbin.overridePythonAttrs (_: {
+            unpackCmd = "tar --no-same-owner --no-same-permissions -xf $curSrc";
+          });
           # The trusted CA bundle is supplied by the updated Nixpkgs cacert;
           # also update certifi's own metadata/version to the fixed release.
           certifi = super.certifi.overridePythonAttrs (_: rec {
@@ -63,7 +86,7 @@
               "examples/offline_demo.py"
               "tests/test_execution_core.py" "tests/test_execution_safety.py"
               "tests/test_execution_ipc.py"
-              "tools/ci/license_guard.py" ".github/license-policy.json"
+              "tools/ci/license_guard.py" "tools/ci/nix_security.py" ".github/license-policy.json"
             ];
       };
       demo = pkgs.writeShellApplication {
@@ -82,6 +105,9 @@
         mkdir -m 700 "$HOME"
         export PYTHONDONTWRITEBYTECODE=1
         export PYTHONPATH="${source}:${environment}/${python.sitePackages}"
+        export NIX_SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+        export SSL_CERT_FILE="$NIX_SSL_CERT_FILE" REQUESTS_CA_BUNDLE="$NIX_SSL_CERT_FILE"
+        export SSL_CERT_DIR="${pkgs.cacert}/etc/ssl/certs"
         export RIO_HOME_EXECUTION_ENABLED=0 RIO_HOME_BACKUP_EXECUTION_ENABLED=false
         export RIO_ST_CLI_CONTROL_ENABLED=0 RIO_WEB_SEARCH_ENABLED=false
         unset RIO_TOOLS_TEST_IMAGE
@@ -92,9 +118,17 @@
     in {
       packages.${system}.default = demo;
       apps.${system}.default = { type = "app"; program = "${demo}/bin/rio-offline-demo"; };
-      devShells.${system}.default = pkgs.mkShell { packages = [ environment ]; };
+      devShells.${system}.default = pkgs.mkShell {
+        packages = [ environment ];
+        # Do not inherit an older CA file from the invoking Nix/Docker shell.
+        NIX_SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+        SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+        SSL_CERT_DIR = "${pkgs.cacert}/etc/ssl/certs";
+        REQUESTS_CA_BUNDLE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+      };
       checks.${system} = {
         offline-demo = checked "rio-offline-demo-check" "python examples/offline_demo.py";
+        security-inputs = checked "rio-security-input-check" "python tools/ci/nix_security.py";
         dependency-licenses = checked "rio-dependency-license-check"
           "python tools/ci/license_guard.py --deps-only";
         execution-safety = checked "rio-execution-safety-check" ''

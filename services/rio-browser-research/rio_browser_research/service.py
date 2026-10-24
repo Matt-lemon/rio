@@ -61,6 +61,8 @@ def parse_result(result):
         if isinstance(d,dict) and set(d)=={'rio_research'} and isinstance(d['rio_research'],dict):
             if d['rio_research'].get('error'):
                 if d['rio_research']['error']=='SEARCH_CHANGED':raise ResearchError('SEARCH_CONTEXT_CHANGED')
+                if d['rio_research']['error']=='BROWSER_ROUTE_GUARD_UNAVAILABLE':
+                    raise ResearchError('BROWSER_ROUTE_GUARD_UNAVAILABLE')
                 kind=d['rio_research'].get('kind')
                 raise ResearchError('SEARCH_TAB_REQUIRED_'+kind.upper() if kind in ('google_other','bing_other','other_host','internal_or_blank') else 'SEARCH_TAB_REQUIRED')
             return d['rio_research']
@@ -121,20 +123,32 @@ const rioPublicRequest=(raw)=>{
     return true;
   } catch { return false; }
 };
-if(typeof page.route!=='function'||typeof page.unroute!=='function')
+if(typeof page.route!=='function')
   return {rio_research:{error:'BROWSER_ROUTE_GUARD_UNAVAILABLE'}};
 const rioRoute=async route=>{
   const request=route.request();
-  // Do not follow redirects. The original URL is not evidence that the
-  // redirect destination is public, and the response must not be fetched.
-  if((request.isNavigationRequest()&&request.redirectedFrom())||
+  if(!['GET','HEAD'].includes(request.method())||
+     (request.isNavigationRequest()&&request.redirectedFrom())||
      !rioPublicRequest(request.url())) return route.abort();
-  return route.continue();
+  // route.continue() follows redirects without invoking the handler again.
+  // Fetch zero hops and never hand a redirect response back to the browser.
+  if(typeof route.fetch!=='function'||typeof route.fulfill!=='function')
+    return route.abort();
+  let response;
+  try {
+    response=await route.fetch({maxRedirects:0,maxRetries:0,timeout:15000});
+    if(response.status()>=300&&response.status()<400) return await route.abort();
+    await route.fulfill({response});
+  } catch { await route.abort().catch(()=>{}); }
+  finally { if(response) await response.dispose(); }
 };
-await page.route('**/*',rioRoute);
-try {
-  await page.goto('''+json.dumps(url)+r''',{waitUntil:'domcontentloaded',timeout:15000});
-} finally { await page.unroute('**/*',rioRoute); }
+// Keep the guard after DOMContentLoaded: delayed fetches are still requests.
+// The marker belongs to the Node Page object, never to untrusted page JS.
+if(!page.__rioResearchRouteV2) {
+  await page.route('**/*',rioRoute);
+  Object.defineProperty(page,'__rioResearchRouteV2',{value:true});
+}
+await page.goto('''+json.dumps(url)+r''',{waitUntil:'domcontentloaded',timeout:15000});
 ''')
 
 

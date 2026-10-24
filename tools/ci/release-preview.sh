@@ -45,6 +45,7 @@ git log --all --format=fuller | "$preview_tmp/gitleaks" stdin --redact --ignore-
 "$preview_tmp/gitleaks" dir . --redact --ignore-gitleaks-allow --no-banner
 "$py" tools/ci/license_guard.py
 "$tpy" tools/ci/license_guard.py --deps-only
+"$py" tools/ci/dependency_security.py
 if [ "$mode" = --release ]; then
   "$py" tools/ci/public_guard.py --release
 else

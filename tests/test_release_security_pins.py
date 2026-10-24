@@ -33,3 +33,9 @@ def test_nix_security_floor_cannot_be_removed_silently():
                   'ps.urllib3.version "2.8.0"',
                   'pkgs.cacert.version "3.131"'):
         assert floor in source
+
+
+def test_capability_dropped_nix_container_preserves_privileged_port_checks():
+    workflow = (ROOT / '.github/workflows/nix-preview.yml').read_text()
+    assert '--cap-drop ALL' in workflow
+    assert '--sysctl net.ipv4.ip_unprivileged_port_start=1024' in workflow

@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -39,7 +40,8 @@ def test_public_https_dns_names_remain_accepted(url):
     code = browser_service.guarded_navigation(url)
     assert code.index("await page.route('**/*',rioRoute)") < code.index('await page.goto(')
     assert 'request.redirectedFrom()' in code
-    assert "await page.unroute('**/*',rioRoute)" in code
+    assert 'maxRedirects:0' in code and 'maxRetries:0' in code
+    assert 'page.unroute(' not in code
 
 
 def test_browser_guard_blocks_redirect_before_network_with_node_fake():
@@ -52,9 +54,11 @@ def test_browser_guard_blocks_redirect_before_network_with_node_fake():
       unroute:async ()=>ops.push('unroute'),
       goto:async target=>{
         ops.push('goto');
-        const request={url:()=>target,isNavigationRequest:()=>true,redirectedFrom:()=>null};
-        await page.handler({request:()=>request,abort:async()=>ops.push('abort'),continue:async()=>ops.push('continue')});
-        const privateRequest={url:()=> 'https://127.0.0.1/admin',isNavigationRequest:()=>true,redirectedFrom:()=>request};
+        const request={url:()=>target,method:()=> 'GET',isNavigationRequest:()=>true,redirectedFrom:()=>null};
+        await page.handler({request:()=>request,abort:async()=>ops.push('abort'),
+          fetch:async options=>{if(options.maxRedirects!==0||options.maxRetries!==0)throw Error('unsafe fetch');ops.push('fetch');return {status:()=>200,dispose:async()=>ops.push('dispose')};},
+          fulfill:async()=>ops.push('fulfill'),continue:async()=>ops.push('continue')});
+        const privateRequest={url:()=> 'https://127.0.0.1/admin',method:()=> 'GET',isNavigationRequest:()=>true,redirectedFrom:()=>request};
         await page.handler({request:()=>privateRequest,abort:async()=>ops.push('abort_redirect'),continue:async()=>ops.push('continue_redirect')});
       }
     };
@@ -62,7 +66,7 @@ def test_browser_guard_blocks_redirect_before_network_with_node_fake():
       process.stdout.write(JSON.stringify(ops));})().catch(e=>{console.error(e);process.exitCode=1;});
     '''
     result = subprocess.check_output(['node', '-e', code, body], text=True)
-    assert json.loads(result) == ['route', 'goto', 'continue', 'abort_redirect', 'unroute']
+    assert json.loads(result) == ['route', 'goto', 'fetch', 'fulfill', 'dispose', 'abort_redirect']
 
 
 def test_browser_handler_rejects_numeric_before_any_mcp_call():
@@ -79,3 +83,10 @@ def test_browser_handler_rejects_numeric_before_any_mcp_call():
     with pytest.raises(browser_service.ResearchError, match='PUBLIC_PAGE_REQUIRED'):
         asyncio.run(browser.handle({'op':'open_url','url':'https://127.1/'}))
     assert not browser.generated
+
+
+def test_missing_routing_capability_has_a_specific_failure_code():
+    result = SimpleNamespace(is_error=False, content=[SimpleNamespace(type='text', text=
+        '### Result\n' + json.dumps({'rio_research': {'error': 'BROWSER_ROUTE_GUARD_UNAVAILABLE'}}))])
+    with pytest.raises(browser_service.ResearchError, match='^BROWSER_ROUTE_GUARD_UNAVAILABLE$'):
+        browser_service.parse_result(result)
