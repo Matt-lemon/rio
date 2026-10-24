@@ -66,3 +66,32 @@ an operator-controlled release procedure.
 
 No operating NAS service, real browser, credential, device, local memory DB,
 or private source worktree was changed for this follow-up.
+
+## Independent verification receipt (2026-10-24)
+
+- Fresh-clone release candidate on the NAS's system Python 3.14: **1,149**
+  root tests, **50** browser tests, **63** tool tests passed; **7** explicitly
+  skipped Docker-integration tests and **24** separately reported subtests.
+  Syntax, offline read-only demo, same-request-ID recovery (zero additional
+  dispatches), history/metadata/worktree Gitleaks, source/dependency-license
+  checker and 410-blob public guard passed. No live operations were performed.
+- Python 3.12 Linux wheel hashes also passed local offline installation,
+  `pip check`, and 133 focused existing/added tests. The 3.14 release gate
+  verified the additional architecture-specific hashes.
+- Original eight WHATWG parser mismatch cases are now all rejected before MCP
+  navigation; Node-simulated route interception rejects a private redirect.
+- OSV querybatch (AnyIO 4.15.1, certifi 2026.10.19, urllib3 2.8.0) returned
+  zero known advisories for those three reviewed versions at the time of check.
+  This is not an all-dependencies SBOM or a proof of vulnerability absence.
+- Nix flake **evaluation and minimum-version assertions passed** with locked
+  Nixpkgs rev `670a258a0d0c227a30dc267343af7881f640b6e6` and NSS cacert
+  3.131.1. The first build needed a capability-safe certifi sdist unpack
+  override. Further disposable, 2-CPU/4-GiB container build attempts reached
+  upstream Sphinx/Curio test builds; a Cargo-cache purity error was diagnosed
+  in an earlier attempt. The final indirect-dependency test was taking too long
+  and was **stopped without a green Nix flake check** to protect NAS resources.
+  No release-security PASS or Nix package closure attestation is claimed.
+
+**Release decision: HOLD for full Nix validation, real browser egress scope
+and real-device operating checks.** All source patches remain in a local
+review branch; neither the public GitHub main nor the operating Rio was updated.
