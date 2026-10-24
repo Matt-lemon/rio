@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import fcntl
+import os
 import re
+import tempfile
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -61,7 +65,21 @@ class MemoryStoreError(RuntimeError):
 class LongTermMemoryStore:
     def __init__(self, path: Path):
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+    @contextmanager
+    def _write_lock(self):
+        # Persistent adjacent lock: locking the replaced JSON inode would be
+        # unsafe because os.replace changes that inode between writers.
+        lock = self.path.with_name(self.path.name + '.lock')
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0)
+        fd = os.open(lock, flags, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
     def _load(self) -> list[dict]:
         try:
@@ -88,18 +106,24 @@ class LongTermMemoryStore:
         return data
 
     def _save(self, memories: list[dict]) -> None:
-        temp = self.path.with_suffix(".tmp")
-
-        temp.write_text(
-            json.dumps(
-                memories,
-                ensure_ascii=False,
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
-
-        temp.replace(self.path)
+        # A unique 0600 temp file prevents competing processes from writing
+        # the same staging inode. Flush file AND parent-directory metadata.
+        fd, temp = tempfile.mkstemp(prefix='.' + self.path.name + '.',
+                                    suffix='.tmp', dir=self.path.parent)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+                json.dump(memories, stream, ensure_ascii=False, indent=2)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp, self.path)
+            parent_fd = os.open(self.path.parent, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+            try:
+                os.fsync(parent_fd)
+            finally:
+                os.close(parent_fd)
+        finally:
+            if os.path.exists(temp):
+                os.unlink(temp)
 
     def remember(
         self,
@@ -114,60 +138,61 @@ class LongTermMemoryStore:
         if not content:
             raise ValueError("빈 기억은 저장할 수 없습니다.")
 
-        memories = self._load()
-        normalized = _normalize(content)
-        normalized_key = _normalize(key) if key else None
-        now = _now()
+        with self._write_lock():
+            memories = self._load()
+            normalized = _normalize(content)
+            normalized_key = _normalize(key) if key else None
+            now = _now()
 
-        for memory in memories:
-            existing_key = memory.get("key")
+            for memory in memories:
+                existing_key = memory.get("key")
 
-            if normalized_key and existing_key == normalized_key:
-                memory["content"] = content
-                memory["importance"] = float(importance)
-                memory["source"] = source
-                memory["updated_at"] = now
-                self._save(memories)
-                return memory
+                if normalized_key and existing_key == normalized_key:
+                    memory["content"] = content
+                    memory["importance"] = float(importance)
+                    memory["source"] = source
+                    memory["updated_at"] = now
+                    self._save(memories)
+                    return memory
 
-            if _normalize(memory["content"]) == normalized:
-                memory["updated_at"] = now
-                self._save(memories)
-                return memory
+                if _normalize(memory["content"]) == normalized:
+                    memory["updated_at"] = now
+                    self._save(memories)
+                    return memory
 
-        memory = {
-            "id": uuid.uuid4().hex[:12],
-            "content": content,
-            "key": normalized_key,
-            "importance": float(importance),
-            "source": source,
-            "created_at": now,
-            "updated_at": now,
-        }
+            memory = {
+                "id": uuid.uuid4().hex[:12],
+                "content": content,
+                "key": normalized_key,
+                "importance": float(importance),
+                "source": source,
+                "created_at": now,
+                "updated_at": now,
+            }
 
-        memories.append(memory)
-        self._save(memories)
-
-        return memory
+            memories.append(memory)
+            self._save(memories)
+            return memory
 
     def forget(self, memory_id: str) -> bool:
         memory_id = memory_id.strip()
         if not memory_id:
             raise ValueError("빈 기억 ID로 삭제할 수 없습니다.")
-        memories = self._load()
+        with self._write_lock():
+            memories = self._load()
 
-        matches = [memory for memory in memories if memory["id"] == memory_id]
-        if not matches:
-            matches = [memory for memory in memories
-                       if memory["id"].startswith(memory_id)]
-        if not matches:
-            return False
-        if len(matches) != 1:
-            raise ValueError("여러 기억에 일치하는 ID입니다. 더 긴 ID를 사용하세요.")
+            matches = [memory for memory in memories if memory["id"] == memory_id]
+            if not matches:
+                matches = [memory for memory in memories
+                           if memory["id"].startswith(memory_id)]
+            if not matches:
+                return False
+            if len(matches) != 1:
+                raise ValueError("여러 기억에 일치하는 ID입니다. 더 긴 ID를 사용하세요.")
 
-        kept = [memory for memory in memories if memory["id"] != matches[0]["id"]]
-        self._save(kept)
-        return True
+            kept = [memory for memory in memories if memory["id"] != matches[0]["id"]]
+            self._save(kept)
+            return True
 
     def all(self) -> list[dict]:
         memories = self._load()
