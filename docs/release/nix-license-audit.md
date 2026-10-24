@@ -51,6 +51,13 @@ an environment dependency. Its own notices remain applicable.
 
 ## Limits
 
+The original inventory and references above describe the initial Nix preview
+before the 2026-10-24 security follow-up. Its security pin and scoped Python
+overrides are documented in
+[security review remediation](security-review-remediation-2026-10-24.md).
+Do not treat the original dependency version inventory as a current security
+assertion after the follow-up.
+
 Python metadata checks do not inspect every native dependency, attest all source
 ownership or constitute a full binary SBOM. No portable binary bundle/image is
 being published here. Before distributing a built closure, separately review

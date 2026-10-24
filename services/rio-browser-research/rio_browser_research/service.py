@@ -95,6 +95,49 @@ def result_rows(data):
     return rows
 
 
+def guarded_navigation(url):
+    """Browser-side request interception *before* goto, including redirects.
+
+    Fail closed where Playwright routing is unavailable. This is not a network
+    sandbox: DNS rebinding and service-worker traffic need separate egress
+    controls before permitting untrusted browsing on an internal network.
+    """
+    if not public_url(url):
+        raise ResearchError('PUBLIC_PAGE_REQUIRED')
+    return (r'''
+const rioPublicRequest=(raw)=>{
+  try {
+    const u=new URL(raw);
+    if(u.protocol!=='https:'||u.username||u.password||
+       (u.port&&u.port!=='443')) return false;
+    const h=u.hostname.toLowerCase();
+    if(h.length>253||!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(h)) return false;
+    if(h.endsWith('.local')||h.endsWith('.localhost')||h.endsWith('.internal')) return false;
+    if(['home.google.com','accounts.google.com','my.smartthings.com','account.samsung.com'].includes(h)) return false;
+    if(/\/(?:login|signin|logout|checkout|payment|accounts)(?:\/|$)/i.test(u.pathname)) return false;
+    const sensitive=/^(?:access_token|refresh_token|id_token|token|auth|authorization|api[_-]?key|secret|password|passwd|session(?:_id)?|code)$/i;
+    if([...u.searchParams.keys()].some(k=>sensitive.test(k))||
+       (u.hash&&sensitive.test(u.hash.slice(1).split('=')[0]))) return false;
+    return true;
+  } catch { return false; }
+};
+if(typeof page.route!=='function'||typeof page.unroute!=='function')
+  return {rio_research:{error:'BROWSER_ROUTE_GUARD_UNAVAILABLE'}};
+const rioRoute=async route=>{
+  const request=route.request();
+  // Do not follow redirects. The original URL is not evidence that the
+  // redirect destination is public, and the response must not be fetched.
+  if((request.isNavigationRequest()&&request.redirectedFrom())||
+     !rioPublicRequest(request.url())) return route.abort();
+  return route.continue();
+};
+await page.route('**/*',rioRoute);
+try {
+  await page.goto('''+json.dumps(url)+r''',{waitUntil:'domcontentloaded',timeout:15000});
+} finally { await page.unroute('**/*',rioRoute); }
+''')
+
+
 class Browser:
     def __init__(self,client,mode='extension'):
         self.client=client;self.lock=asyncio.Lock();self.phase='AWAITING_TAB_APPROVAL'
@@ -120,7 +163,7 @@ class Browser:
     async def prime(self):
         try:
             if self.mode=='managed':
-                await self.code('await page.goto("https://www.google.com/",{waitUntil:"domcontentloaded",timeout:15000});'+READ,timeout=30)
+                await self.code(guarded_navigation('https://www.google.com/')+READ,timeout=30)
             await self.code(READ,timeout=3600)
             self.phase='CONNECTED_WAITING_FOR_QUERY'
         except Exception as error:
@@ -166,7 +209,7 @@ class Browser:
                 self.results=[];self.search_url=None;self.opened_url=None
                 self.opened_index=None;self.query=None
                 body='if(page.url()!=='+json.dumps(info['url'])+')return {rio_research:{error:"SEARCH_CHANGED"}};'
-                body+='await page.goto('+json.dumps(requested)+',{waitUntil:"domcontentloaded",timeout:15000});'
+                body+=guarded_navigation(requested)
                 body+='return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};'
                 data=await self.code(body)
                 if not public_url(data.get('url')):
@@ -188,7 +231,7 @@ class Browser:
                 url=base+'/search?q='+quote(query)+'&hl=ko'
                 body='if(page.url()!=='+json.dumps(info['url'])+')return {rio_research:{error:"SEARCH_CHANGED"}};'
                 self.results=[];self.search_url=None;self.opened_url=None;self.opened_index=None;self.query=None
-                body+='await page.goto('+json.dumps(url)+',{waitUntil:"domcontentloaded",timeout:15000});'
+                body+=guarded_navigation(url)
                 body+=COLLECT_RESULTS
                 data=await self.code(body)
                 self.failed_navigation_url=None
@@ -199,7 +242,7 @@ class Browser:
                 if not self.search_url or not self.results:raise ResearchError('NO_CURRENT_SEARCH_RESULT')
                 allowed=[u for u in (self.search_url,self.opened_url) if u]
                 body='if(!'+json.dumps(allowed)+'.includes(page.url()))return {rio_research:{error:"SEARCH_CHANGED"}};'
-                body+='await page.goto('+json.dumps(self.search_url)+',{waitUntil:"domcontentloaded",timeout:15000});'+COLLECT_RESULTS
+                body+=guarded_navigation(self.search_url)+COLLECT_RESULTS
                 data=await self.code(body)
                 if data.get('url')!=self.search_url:raise ResearchError('SEARCH_CONTEXT_CHANGED')
                 self.results=result_rows(data);self.opened_index=None
@@ -209,7 +252,9 @@ class Browser:
             chosen=self.results[index]
             if not public_url(chosen['url']):raise ResearchError('PUBLIC_PAGE_REQUIRED')
             allowed=[u for u in (self.search_url,self.opened_url) if u]
-            body='if(!'+json.dumps(allowed)+'.includes(page.url()))return {rio_research:{error:"SEARCH_CHANGED"}};await page.goto('+json.dumps(chosen['url'])+',{waitUntil:"domcontentloaded",timeout:15000});return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};'
+            body='if(!'+json.dumps(allowed)+'.includes(page.url()))return {rio_research:{error:"SEARCH_CHANGED"}};'
+            body+=guarded_navigation(chosen['url'])
+            body+='return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};'
             data=await self.code(body)
             # Search engines can redirect an HTTPS result to an old HTTP article.
             # Try its identical public URL over TLS once, without reading HTTP
@@ -218,8 +263,8 @@ class Browser:
             secure='https:'+final[5:] if final.startswith('http:') else None
             if secure and public_url(secure):
                 data=await self.code('if(page.url()!=='+json.dumps(final)+')return {rio_research:{error:"SEARCH_CHANGED"}};'
-                    'await page.goto('+json.dumps(secure)+',{waitUntil:"domcontentloaded",timeout:15000});'
-                    'return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};')
+                    +guarded_navigation(secure)
+                    +'return {rio_research:{url:page.url(),title:(await page.title()).slice(0,180)}};')
             if not public_url(data.get('url')):
                 self.failed_navigation_url=data.get('url')
                 scheme=urlparse(data.get('url','')).scheme

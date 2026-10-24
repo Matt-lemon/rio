@@ -18,7 +18,7 @@ unset RIO_TOOLS_TEST_IMAGE
 mkdir -p "$HOME"
 python3 -m venv "$preview_tmp/core"
 py="$preview_tmp/core/bin/python"
-"$py" -m pip --disable-pip-version-check install -q -r requirements-preview.lock
+"$py" -m pip --disable-pip-version-check install -q --require-hashes --only-binary=:all: -r requirements-preview.lock
 "$py" -m pip check
 # Explicit permission fixtures need the normal mask; the outer directory stays 0700.
 umask 022
@@ -27,7 +27,7 @@ umask 022
 "$py" tools/ci/run_tests.py --suite browser
 python3 -m venv "$preview_tmp/tools"
 tpy="$preview_tmp/tools/bin/python"
-"$tpy" -m pip --disable-pip-version-check install -q -r services/rio-tools/requirements-preview.lock
+"$tpy" -m pip --disable-pip-version-check install -q --require-hashes --only-binary=:all: -r services/rio-tools/requirements-preview.lock
 "$tpy" -m pip check
 "$tpy" tools/ci/run_tests.py --suite tools
 "$py" examples/offline_demo.py

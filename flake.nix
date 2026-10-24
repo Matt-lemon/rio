@@ -1,16 +1,51 @@
 {
   description = "Rio: a reproducible, read-only architecture preview";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+  # Reviewed fixed revision: updated AnyIO and NSS cacert trust roots.
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/670a258a0d0c227a30dc267343af7881f640b6e6";
 
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; config.allowUnfree = false; };
-      python = pkgs.python312;
-      environment = python.withPackages (ps: with ps; [
-        httpx jsonschema python-dotenv pyyaml pytest requests
-      ]);
+      # Nixpkgs still ships urllib3 2.7.0 at this revision. Scope the
+      # security bump to this preview's Python interpreter, never the host.
+      python = pkgs.python312.override {
+        packageOverrides = self: super: {
+          # The trusted CA bundle is supplied by the updated Nixpkgs cacert;
+          # also update certifi's own metadata/version to the fixed release.
+          certifi = super.certifi.overridePythonAttrs (_: rec {
+            version = "2026.10.19";
+            src = pkgs.fetchPypi {
+              pname = "certifi";
+              inherit version;
+              hash = "sha256-A1wehVcrFBvxw6Pv8OM6jrdJF1IvJVkHX/jS/qeAoa4=";
+            };
+            # PyPI's sdist records uid=1001. Our capability-dropped Nix
+            # container must never need chown while unpacking it.
+            unpackCmd = "tar --no-same-owner --no-same-permissions -xf $curSrc";
+          });
+          urllib3 = super.urllib3.overridePythonAttrs (_: rec {
+            version = "2.8.0";
+            src = pkgs.fetchPypi {
+              pname = "urllib3";
+              inherit version;
+              hash = "sha256-Y78urUyHlCbr8i7yp4HutKo7SueYoENVBvhof9W7m2M=";
+            };
+            # The upstream recipe declares a very large optional test-only
+            # closure even with doCheck=false. Rio checks imports and behavior
+            # in its own Nix derivations; do not build unrelated test stacks.
+            nativeCheckInputs = [];
+            doCheck = false;
+          });
+        };
+      };
+      environment = python.withPackages (ps:
+        assert pkgs.lib.versionAtLeast ps.anyio.version "4.14.2";
+        assert pkgs.lib.versionAtLeast ps.certifi.version "2026.10.19";
+        assert pkgs.lib.versionAtLeast ps.urllib3.version "2.8.0";
+        assert pkgs.lib.versionAtLeast pkgs.cacert.version "3.131";
+        with ps; [ httpx jsonschema python-dotenv pyyaml pytest requests ]);
       # Exclude local settings, state, assets and unrelated services from the
       # runtime source. No credentials may be passed as derivation inputs.
       source = pkgs.lib.cleanSourceWith {
